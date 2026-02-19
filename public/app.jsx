@@ -112,9 +112,16 @@ const CATEGORY_COLORS = {
   cardio: { accent: "#ff6b35", label: "Cardio" },
 };
 
-const APP_VERSION = "0.10";
-const APP_BUILD_DATE = "2026-02-18";
+const APP_VERSION = "0.11";
+const APP_BUILD_DATE = "2026-02-19";
 const CHANGELOG = [
+  { version: "0.11", date: "2026-02-19", changes: [
+    "Fix: Changing working weight no longer overwrites completed sets (BUG-001)",
+    "Fix: Template/plan weight input borders more visible (BUG-005)",
+    "Fix: Custom exercises can now edit category (strength/cardio/mobility) (BUG-006)",
+    "Fix: Built-in exercise edit shows helpful message about editable fields",
+    "Architecture: Split into loader + app.jsx for cleaner deployment",
+  ]},
   { version: "0.10", date: "2026-02-18", changes: [
     "Duplicate planned workout to another date (copy icon on dashboard)",
     "Plan Again — convert any completed workout into a planned workout from history",
@@ -799,7 +806,7 @@ function WorkoutTracker() {
                                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                     <input type="number" value={config.warmupWeight || ""} placeholder="0"
                                       onChange={e => updateConfig("warmupWeight", Number(e.target.value) || 0)}
-                                      style={{ ...S.input, fontSize: 12, textAlign: "center", fontWeight: 700, width: "100%", padding: "5px 4px", borderColor: "#f59e0b25" }} />
+                                      style={{ ...S.input, fontSize: 12, textAlign: "center", fontWeight: 700, width: "100%", padding: "5px 4px", borderColor: "#f59e0b60" }} />
                                     <span style={{ fontSize: 8, color: T.textFaint }}>lb</span>
                                   </div>
                                 </div>
@@ -808,7 +815,7 @@ function WorkoutTracker() {
                                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                     <input type="number" value={config.targetWeight || ""} placeholder="0"
                                       onChange={e => updateConfig("targetWeight", Number(e.target.value) || 0)}
-                                      style={{ ...S.input, fontSize: 12, textAlign: "center", fontWeight: 700, width: "100%", padding: "5px 4px", borderColor: "#22c55e25" }} />
+                                      style={{ ...S.input, fontSize: 12, textAlign: "center", fontWeight: 700, width: "100%", padding: "5px 4px", borderColor: "#22c55e60" }} />
                                     <span style={{ fontSize: 8, color: T.textFaint }}>lb</span>
                                   </div>
                                 </div>
@@ -997,7 +1004,7 @@ function WorkoutTracker() {
                                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                     <input type="number" value={config.warmupWeight || ""} placeholder="0"
                                       onChange={e => updateConfig("warmupWeight", Number(e.target.value) || 0)}
-                                      style={{ ...S.input, fontSize: 12, textAlign: "center", fontWeight: 700, width: "100%", padding: "5px 4px", borderColor: "#f59e0b25" }} />
+                                      style={{ ...S.input, fontSize: 12, textAlign: "center", fontWeight: 700, width: "100%", padding: "5px 4px", borderColor: "#f59e0b60" }} />
                                     <span style={{ fontSize: 8, color: T.textFaint }}>lb</span>
                                   </div>
                                 </div>
@@ -1006,7 +1013,7 @@ function WorkoutTracker() {
                                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                     <input type="number" value={config.targetWeight || ""} placeholder="0"
                                       onChange={e => updateConfig("targetWeight", Number(e.target.value) || 0)}
-                                      style={{ ...S.input, fontSize: 12, textAlign: "center", fontWeight: 700, width: "100%", padding: "5px 4px", borderColor: "#22c55e25" }} />
+                                      style={{ ...S.input, fontSize: 12, textAlign: "center", fontWeight: 700, width: "100%", padding: "5px 4px", borderColor: "#22c55e60" }} />
                                     <span style={{ fontSize: 8, color: T.textFaint }}>lb</span>
                                   </div>
                                 </div>
@@ -1335,7 +1342,7 @@ function WorkoutTracker() {
                                             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                               <input type="number" value={config.warmupWeight || ""} placeholder="0"
                                                 onChange={e => updateConfig("warmupWeight", Number(e.target.value) || 0)}
-                                                style={{ ...S.input, fontSize: 12, textAlign: "center", fontWeight: 700, width: "100%", padding: "5px 4px", borderColor: "#f59e0b25" }} />
+                                                style={{ ...S.input, fontSize: 12, textAlign: "center", fontWeight: 700, width: "100%", padding: "5px 4px", borderColor: "#f59e0b60" }} />
                                               <span style={{ fontSize: 8, color: T.textFaint }}>lb</span>
                                             </div>
                                           </div>
@@ -1344,7 +1351,7 @@ function WorkoutTracker() {
                                             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                               <input type="number" value={config.targetWeight || ""} placeholder="0"
                                                 onChange={e => updateConfig("targetWeight", Number(e.target.value) || 0)}
-                                                style={{ ...S.input, fontSize: 12, textAlign: "center", fontWeight: 700, width: "100%", padding: "5px 4px", borderColor: "#22c55e25" }} />
+                                                style={{ ...S.input, fontSize: 12, textAlign: "center", fontWeight: 700, width: "100%", padding: "5px 4px", borderColor: "#22c55e60" }} />
                                               <span style={{ fontSize: 8, color: T.textFaint }}>lb</span>
                                             </div>
                                           </div>
@@ -1547,7 +1554,21 @@ function WorkoutTracker() {
 
     const updateField = (exIdx, field, value) => {
       const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
-      updated.exercises[exIdx] = { ...updated.exercises[exIdx], [field]: value };
+      const ex = { ...updated.exercises[exIdx], [field]: value };
+
+      // BUG-001 fix: when changing workingWeight, lock in the old weight
+      // on any completed sets that don't have a custom weight yet
+      if (field === "workingWeight" && ex.workingSets) {
+        const oldWeight = updated.exercises[exIdx].workingWeight || 0;
+        ex.workingSets = ex.workingSets.map(set => {
+          if (set.completed && set.weight == null) {
+            return { ...set, weight: oldWeight };
+          }
+          return set;
+        });
+      }
+
+      updated.exercises[exIdx] = ex;
       setActiveWorkout(updated);
     };
 
@@ -3036,7 +3057,22 @@ function WorkoutTracker() {
                               <input style={{ ...S.input, fontSize: 12 }} value={editEx.muscle}
                                 onChange={e => { const updated = (data.customExercises || []).map(ce => ce.id === ex.id ? { ...ce, muscle: e.target.value } : ce); setData({ ...data, customExercises: updated }); }} />
                             </div>
+                            <div style={{ marginBottom: 8 }}>
+                              <div style={{ fontSize: 8, color: T.textMuted, letterSpacing: 1, marginBottom: 3 }}>CATEGORY</div>
+                              <select style={{ ...S.input, fontSize: 12 }} value={editEx.category || "strength"}
+                                onChange={e => { const updated = (data.customExercises || []).map(ce => ce.id === ex.id ? { ...ce, category: e.target.value } : ce); setData({ ...data, customExercises: updated }); }}>
+                                <option value="strength">Strength</option>
+                                <option value="cardio">Cardio</option>
+                                <option value="mobility">Mobility</option>
+                              </select>
+                            </div>
                           </>
+                        )}
+
+                        {!isCustom && (
+                          <div style={{ fontSize: 9, color: T.textFaint, marginBottom: 8, fontStyle: "italic" }}>
+                            Built-in exercise — only the video link can be changed
+                          </div>
                         )}
 
                         <div style={{ marginBottom: 10 }}>
@@ -3051,7 +3087,7 @@ function WorkoutTracker() {
                               const newUrl = urlInput ? urlInput.value.trim() : videoUrl;
                               if (isCustom) {
                                 const current = (data.customExercises || []).find(ce => ce.id === ex.id);
-                                updateCustomExercise(ex.id, { name: current.name, muscle: current.muscle, videoUrl: newUrl });
+                                updateCustomExercise(ex.id, { name: current.name, muscle: current.muscle, category: current.category || "strength", videoUrl: newUrl });
                               } else {
                                 updateExerciseVideo(ex.id, newUrl);
                               }

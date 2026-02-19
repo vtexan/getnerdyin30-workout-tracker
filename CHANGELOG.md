@@ -1,9 +1,41 @@
 # GetNerdyIn30 Workout Tracker — Changelog
 
-**Current Version:** v0.08  
-**Last Updated:** 2026-02-18  
+**Current Version:** v0.11  
+**Last Updated:** 2026-02-19  
 **Live:** [getnerdyin30.com/workout-tracker](https://getnerdyin30.com/workout-tracker/)  
 **Backup:** [getnerdyin30-tracker.web.app](https://getnerdyin30-tracker.web.app)
+
+---
+
+## v0.11 — 2026-02-19
+
+### Bug Fixes
+- **BUG-001 FIXED:** Changing working weight no longer overwrites completed sets — completed sets lock in their weight
+- **BUG-005 FIXED:** Template and plan builder weight input borders now visible (opacity 25% → 60%)
+- **BUG-006 FIXED:** Custom exercise edit now includes category dropdown (strength/cardio/mobility); built-in exercises show a message that only video URL is editable
+
+### Architecture
+- Split monolithic HTML into loader (9 lines on WordPress) + app.jsx (Firebase Hosting)
+- Added CORS headers to firebase.json for cross-origin script loading
+- WordPress page no longer requires Elementor paste for updates — just `firebase deploy`
+- Updated README with architecture diagram, project structure, and accurate tech stack
+
+---
+
+## v0.10 — 2026-02-18
+
+### Features
+- Duplicate planned workout to another date (copy icon on dashboard)
+- Convert completed workout to planned workout ("Plan Again" button in history)
+- Templates now support warmup and cooldown notes
+
+---
+
+## v0.09 — 2026-02-18
+
+### Features
+- Exercise swap mid-workout — tap swap icon to see alternatives targeting the same muscle
+- Active workout overwrite protection — confirms before replacing an in-progress workout
 
 ---
 
@@ -125,9 +157,9 @@
 
 | ID | Description | Status |
 |----|-------------|--------|
-| BUG-001 | Changing working weight propagates to all sets retroactively | Open |
-| BUG-005 | Template builder weight fields may not be visible enough | Needs investigation |
-| BUG-006 | Exercise edit pencil only allows video URL changes | Open |
+| BUG-001 | Changing working weight propagates to all sets retroactively | ✅ Fixed v0.11 |
+| BUG-005 | Template builder weight fields may not be visible enough | ✅ Fixed v0.11 |
+| BUG-006 | Exercise edit pencil only allows video URL changes | ✅ Fixed v0.11 |
 
 ## Backlog
 

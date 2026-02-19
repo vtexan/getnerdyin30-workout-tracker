@@ -115,4 +115,4 @@ Read the build story at [getnerdyin30.com](https://getnerdyin30.com).
 
 ---
 
-*Current version: v0.10*
+*Current version: v0.11*
