@@ -298,6 +298,7 @@ function WorkoutTracker() {
   const [planningDate, setPlanningDate] = useState(null); // date string for planning a workout
   const [planExerciseConfigs, setPlanExerciseConfigs] = useState([]); // [{exerciseId, targetWeight, warmupWeight, targetSets, targetReps}]
   const [planName, setPlanName] = useState("");
+  const [exerciseSearch, setExerciseSearch] = useState("");
   const [planWarmup, setPlanWarmup] = useState("");
   const [planCooldown, setPlanCooldown] = useState("");
   const [editingPlan, setEditingPlan] = useState(null); // planned workout being edited
@@ -720,7 +721,7 @@ function WorkoutTracker() {
           <div style={{ ...S.card, padding: 0, marginTop: 14, borderColor: "#0ea5e933" }}>
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.borderSubtle}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#0ea5e9", letterSpacing: 1 }}>EDIT PLAN — {new Date(editingPlan.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
-              <button onClick={() => { setEditingPlan(null); setPlanningDate(null); setPlanExerciseConfigs([]); setPlanName(""); setPlanWarmup(""); setPlanCooldown(""); }}
+              <button onClick={() => { setEditingPlan(null); setPlanningDate(null); setPlanExerciseConfigs([]); setPlanName(""); setPlanWarmup(""); setPlanCooldown(""); setExerciseSearch(""); }}
                 style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", padding: 4 }}><XIcon /></button>
             </div>
 
@@ -743,11 +744,19 @@ function WorkoutTracker() {
                 value={planCooldown} onChange={e => setPlanCooldown(e.target.value)} />
             </div>
 
+            <div style={{ padding: "8px 12px 4px" }}>
+              <input type="text" placeholder="🔍 Search exercises..." value={exerciseSearch}
+                onChange={e => setExerciseSearch(e.target.value)}
+                style={{ ...S.input, fontSize: 11, padding: "7px 10px", width: "100%", borderColor: "#0ea5e933" }} />
+            </div>
+
             <div style={{ maxHeight: 350, overflowY: "auto", padding: "8px 0" }}>
               {(() => {
-                const categories = [...new Set(allExercises.map(e => e.category))];
+                const searchTerm = exerciseSearch.toLowerCase().trim();
+                const filtered = searchTerm ? allExercises.filter(e => e.name.toLowerCase().includes(searchTerm) || e.muscle.toLowerCase().includes(searchTerm) || (e.category || "").toLowerCase().includes(searchTerm)) : allExercises;
+                const categories = [...new Set(filtered.map(e => e.category))];
                 return categories.map(cat => {
-                  const catExercises = allExercises.filter(e => e.category === cat);
+                  const catExercises = filtered.filter(e => e.category === cat);
                   const catInfo = CATEGORY_COLORS[cat] || { accent: "#888", label: cat };
                   return (
                     <div key={cat} style={{ padding: "0 12px" }}>
@@ -941,11 +950,19 @@ function WorkoutTracker() {
               </div>
             </div>
 
+            <div style={{ padding: "8px 12px 4px" }}>
+              <input type="text" placeholder="🔍 Search exercises..." value={exerciseSearch}
+                onChange={e => setExerciseSearch(e.target.value)}
+                style={{ ...S.input, fontSize: 11, padding: "7px 10px", width: "100%", borderColor: "#0ea5e933" }} />
+            </div>
+
             <div style={{ maxHeight: 350, overflowY: "auto", padding: "8px 0" }}>
               {(() => {
-                const categories = [...new Set(allExercises.map(e => e.category))];
+                const searchTerm = exerciseSearch.toLowerCase().trim();
+                const filtered = searchTerm ? allExercises.filter(e => e.name.toLowerCase().includes(searchTerm) || e.muscle.toLowerCase().includes(searchTerm) || (e.category || "").toLowerCase().includes(searchTerm)) : allExercises;
+                const categories = [...new Set(filtered.map(e => e.category))];
                 return categories.map(cat => {
-                  const catExercises = allExercises.filter(e => e.category === cat);
+                  const catExercises = filtered.filter(e => e.category === cat);
                   const catInfo = CATEGORY_COLORS[cat] || { accent: "#888", label: cat };
                   return (
                     <div key={cat} style={{ padding: "0 12px" }}>
@@ -1258,7 +1275,7 @@ function WorkoutTracker() {
                       <div style={{ ...S.card, padding: 0, marginTop: 8, borderColor: "#0ea5e933" }}>
                         <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.borderSubtle}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontSize: 11, fontWeight: 700, color: "#0ea5e9", letterSpacing: 1 }}>PLAN WORKOUT</span>
-                          <button onClick={() => setPlanningDate(null)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", padding: 4 }}><XIcon /></button>
+                          <button onClick={() => { setPlanningDate(null); setExerciseSearch(""); }} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", padding: 4 }}><XIcon /></button>
                         </div>
 
                         <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.borderSubtle}` }}>
@@ -1280,9 +1297,19 @@ function WorkoutTracker() {
                             value={planCooldown} onChange={e => setPlanCooldown(e.target.value)} />
                         </div>
 
+                        <div style={{ padding: "8px 12px 4px" }}>
+                          <input type="text" placeholder="🔍 Search exercises..." value={exerciseSearch}
+                            onChange={e => setExerciseSearch(e.target.value)}
+                            style={{ ...S.input, fontSize: 11, padding: "7px 10px", width: "100%", borderColor: "#0ea5e933" }} />
+                        </div>
+
                         <div style={{ maxHeight: 400, overflowY: "auto", padding: "8px 0" }}>
-                          {categories.map(cat => {
-                            const catExercises = allExercises.filter(e => e.category === cat);
+                          {(() => {
+                            const searchTerm = exerciseSearch.toLowerCase().trim();
+                            const filtered = searchTerm ? allExercises.filter(e => e.name.toLowerCase().includes(searchTerm) || e.muscle.toLowerCase().includes(searchTerm) || (e.category || "").toLowerCase().includes(searchTerm)) : allExercises;
+                            const filteredCategories = [...new Set(filtered.map(e => e.category))];
+                            return filteredCategories.map(cat => {
+                            const catExercises = filtered.filter(e => e.category === cat);
                             const catInfo = CATEGORY_COLORS[cat] || { accent: "#888", label: cat };
                             return (
                               <div key={cat} style={{ padding: "0 12px" }}>
@@ -1374,7 +1401,8 @@ function WorkoutTracker() {
                                 })}
                               </div>
                             );
-                          })}
+                          });
+                          })()}
                         </div>
 
                         {planExerciseConfigs.length > 1 && (
@@ -2134,13 +2162,20 @@ function WorkoutTracker() {
                 <XIcon />
               </button>
             </div>
+            <div style={{ padding: "8px 12px 4px" }}>
+              <input type="text" placeholder="🔍 Search exercises..." value={exerciseSearch}
+                onChange={e => setExerciseSearch(e.target.value)}
+                style={{ ...S.input, fontSize: 11, padding: "7px 10px", width: "100%", borderColor: "#0ea5e933" }} />
+            </div>
             <div style={{ maxHeight: 300, overflowY: "auto", padding: "8px 0" }}>
               {(() => {
                 const currentIds = activeWorkout.exercises.map(e => e.exerciseId);
                 const available = allExercises.filter(e => !currentIds.includes(e.id));
-                const categories = [...new Set(available.map(e => e.category))];
+                const searchTerm = exerciseSearch.toLowerCase().trim();
+                const filtered = searchTerm ? available.filter(e => e.name.toLowerCase().includes(searchTerm) || e.muscle.toLowerCase().includes(searchTerm) || (e.category || "").toLowerCase().includes(searchTerm)) : available;
+                const categories = [...new Set(filtered.map(e => e.category))];
                 return categories.map(cat => {
-                  const catExercises = available.filter(e => e.category === cat);
+                  const catExercises = filtered.filter(e => e.category === cat);
                   const catInfo = CATEGORY_COLORS[cat] || { accent: "#888", label: cat };
                   return (
                     <div key={cat} style={{ padding: "0 12px" }}>
