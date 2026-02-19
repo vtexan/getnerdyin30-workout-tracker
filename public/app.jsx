@@ -1,4 +1,21 @@
+// ═══════════════════════════════════════════════════════════════════
+// GetNerdyIn30 Workout Tracker — app.jsx
+// ═══════════════════════════════════════════════════════════════════
+//
+// Architecture:
+//   WordPress (getnerdyin30.com) serves a 9-line loader that pulls
+//   this file from Firebase Hosting. Babel compiles JSX in-browser,
+//   React mounts into the page, Firebase handles auth + data.
+//
+// Stack: React 18 · Firebase Auth · Cloud Firestore · Babel standalone
+// Source: https://github.com/vtexan/getnerdyin30-workout-tracker
+// ═══════════════════════════════════════════════════════════════════
+
 // ─── Firebase Setup ───
+// NOTE: This is a client-side Firebase API key, not a secret.
+// It is safe to expose in source code — access is controlled by
+// Firebase Auth and Firestore Security Rules, not by the key itself.
+// See: https://firebase.google.com/docs/projects/api-keys
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyClaFN6GEpbheA7uSlOSSKKYBUntukG1Qs",
   authDomain: "getnerdyin30-tracker.firebaseapp.com",
