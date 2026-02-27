@@ -119,6 +119,10 @@ const CHANGELOG = [
     "Rename workouts in history — tap pencil icon next to any workout name",
     "Template deviation detection — prompts to rename when exercises changed from template",
   ]},
+  { version: "0.13", date: "2026-02-26", changes: [
+    "Rename workouts in history — tap pencil icon next to any workout name",
+    "Template deviation detection — prompts to rename when exercises changed from template",
+  ]},
   { version: "0.12", date: "2026-02-19", changes: [
     "Exercise search bar in all exercise pickers (plans, templates, mid-workout)",
     "Contextual swap hint on first exercise card (dismisses after first use)",
@@ -317,6 +321,7 @@ function WorkoutTracker() {
   const [tplWarmup, setTplWarmup] = useState("");
   const [tplCooldown, setTplCooldown] = useState("");
   const [swappingExerciseIdx, setSwappingExerciseIdx] = useState(null); // index of exercise being swapped in active workout
+  const [editingLogName, setEditingLogName] = useState(null); // { idx, name } for inline rename in history
   const [editingLogName, setEditingLogName] = useState(null); // { idx, name } for inline rename in history
   const [dismissedHints, setDismissedHints] = useState(() => {
     try { return JSON.parse(localStorage.getItem("gn30-hints") || "{}"); } catch { return {}; }
