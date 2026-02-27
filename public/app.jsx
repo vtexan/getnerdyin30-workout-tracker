@@ -112,7 +112,7 @@ const CATEGORY_COLORS = {
   cardio: { accent: "#ff6b35", label: "Cardio" },
 };
 
-const APP_VERSION = "0.12";
+const APP_VERSION = "0.13";
 const APP_BUILD_DATE = "2026-02-26";
 const CHANGELOG = [
   { version: "0.13", date: "2026-02-26", changes: [
@@ -321,7 +321,6 @@ function WorkoutTracker() {
   const [tplWarmup, setTplWarmup] = useState("");
   const [tplCooldown, setTplCooldown] = useState("");
   const [swappingExerciseIdx, setSwappingExerciseIdx] = useState(null); // index of exercise being swapped in active workout
-  const [editingLogName, setEditingLogName] = useState(null); // { idx, name } for inline rename in history
   const [editingLogName, setEditingLogName] = useState(null); // { idx, name } for inline rename in history
   const [dismissedHints, setDismissedHints] = useState(() => {
     try { return JSON.parse(localStorage.getItem("gn30-hints") || "{}"); } catch { return {}; }
