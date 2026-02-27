@@ -112,9 +112,18 @@ const CATEGORY_COLORS = {
   cardio: { accent: "#ff6b35", label: "Cardio" },
 };
 
-const APP_VERSION = "0.11";
-const APP_BUILD_DATE = "2026-02-19";
+const APP_VERSION = "0.12";
+const APP_BUILD_DATE = "2026-02-26";
 const CHANGELOG = [
+  { version: "0.13", date: "2026-02-26", changes: [
+    "Rename workouts in history — tap pencil icon next to any workout name",
+    "Template deviation detection — prompts to rename when exercises changed from template",
+  ]},
+  { version: "0.12", date: "2026-02-19", changes: [
+    "Exercise search bar in all exercise pickers (plans, templates, mid-workout)",
+    "Contextual swap hint on first exercise card (dismisses after first use)",
+    "Simplified warmup — single set, removed add/remove buttons",
+  ]},
   { version: "0.11", date: "2026-02-19", changes: [
     "Fix: Changing working weight no longer overwrites completed sets (BUG-001)",
     "Fix: Template/plan weight input borders more visible (BUG-005)",
@@ -308,6 +317,15 @@ function WorkoutTracker() {
   const [tplWarmup, setTplWarmup] = useState("");
   const [tplCooldown, setTplCooldown] = useState("");
   const [swappingExerciseIdx, setSwappingExerciseIdx] = useState(null); // index of exercise being swapped in active workout
+  const [editingLogName, setEditingLogName] = useState(null); // { idx, name } for inline rename in history
+  const [dismissedHints, setDismissedHints] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("gn30-hints") || "{}"); } catch { return {}; }
+  });
+  const dismissHint = (key) => {
+    const updated = { ...dismissedHints, [key]: true };
+    setDismissedHints(updated);
+    localStorage.setItem("gn30-hints", JSON.stringify(updated));
+  };
 
   // Initialize Firebase and listen to auth state
   useEffect(() => {
@@ -1706,6 +1724,7 @@ function WorkoutTracker() {
       exercises[exIdx] = replacement;
       setActiveWorkout({ ...activeWorkout, exercises });
       setSwappingExerciseIdx(null);
+      if (!dismissedHints.swap) dismissHint("swap");
     };
 
     const addExerciseMidWorkout = (id) => {
@@ -1934,6 +1953,14 @@ function WorkoutTracker() {
                     <XIcon />
                   </button>
                 </div>
+                {exIdx === 0 && !dismissedHints.swap && (
+                  <div style={{ margin: "6px 0 2px", padding: "6px 10px", background: "#0ea5e908", borderRadius: 6, border: "1px solid #0ea5e920", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ fontSize: 10, color: "#0ea5e9" }}>
+                      <strong>Tip:</strong> Machine taken? Tap <SwapIcon /> to swap for an alternative.
+                    </span>
+                    <button onClick={() => dismissHint("swap")} style={{ background: "none", border: "none", color: "#0ea5e950", cursor: "pointer", padding: 2, flexShrink: 0, fontSize: 9 }}>✕</button>
+                  </div>
+                )}
                 {isNewPR && (
                   <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: "#f59e0b12", borderRadius: 6, border: "1px solid #f59e0b33" }}>
                     <span style={{ color: "#f59e0b" }}><FlameIcon /></span>
@@ -2031,16 +2058,10 @@ function WorkoutTracker() {
                       </button>
                       {set.completed && (
                         <input type="number" value={set.reps || ""} onChange={e => updateReps(exIdx, "warmup", setIdx, e.target.value)}
-                          style={{ ...S.input, width: 42, padding: "2px 4px", textAlign: "center", fontSize: 10, borderColor: "#f59e0b22" }} placeholder="10" />
+                          style={{ ...S.input, width: 50, padding: "2px 4px", textAlign: "center", fontSize: 10, borderColor: "#f59e0b22" }} placeholder="10" />
                       )}
                     </div>
                   ))}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 12 }}>
-                    <button onClick={() => addSet(exIdx, "warmup")} style={{ ...S.setBtn(false, true), width: 32, height: 20, borderRadius: 4, borderStyle: "dashed", borderColor: "#f59e0b33" }}><PlusIcon /></button>
-                    {ex.warmupSets.length > 1 && (
-                      <button onClick={() => removeSet(exIdx, "warmup")} style={{ ...S.setBtn(false, true), width: 32, height: 20, borderRadius: 4, borderStyle: "dashed", borderColor: "#f59e0b22", color: T.textFaint }}><MinusIcon /></button>
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -2072,7 +2093,7 @@ function WorkoutTracker() {
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <input type="number" value={set.weight != null ? set.weight : (ex.workingWeight || "")}
                               onChange={e => updateSetWeight(exIdx, setIdx, e.target.value)}
-                              style={{ ...S.input, width: 62, textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px",
+                              style={{ ...S.input, width: 70, textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px",
                                 borderColor: weightChanged ? "#f59e0b44" : "#22c55e22",
                                 color: weightChanged ? "#f59e0b" : T.inputText }} placeholder="0" />
                             <span style={{ fontSize: 9, color: T.textMuted }}>lb</span>
@@ -2080,7 +2101,7 @@ function WorkoutTracker() {
                           <span style={{ fontSize: 9, color: T.textFaint }}>×</span>
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <input type="number" value={set.reps || ""} onChange={e => updateReps(exIdx, "working", setIdx, e.target.value)}
-                              style={{ ...S.input, width: 42, textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px", borderColor: "#22c55e22" }} placeholder="12" />
+                              style={{ ...S.input, width: 50, textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px", borderColor: "#22c55e22" }} placeholder="12" />
                             <span style={{ fontSize: 9, color: T.textMuted }}>reps</span>
                           </div>
                           {weightChanged && <span style={{ fontSize: 8, color: "#f59e0b", letterSpacing: 0.5 }}>BUMPED</span>}
@@ -2203,6 +2224,22 @@ function WorkoutTracker() {
 
         <button style={S.btn("#22c55e")} onClick={() => {
           if (editingLogIdx === null && activeWorkout) {
+            // Check if exercises deviated from original template
+            const currentExerciseIds = activeWorkout.exercises.map(e => e.exerciseId);
+            const originalIds = activeWorkout.originalTemplateExerciseIds || [];
+            const exercisesChanged = originalIds.length > 0 && (
+              currentExerciseIds.length !== originalIds.length ||
+              !currentExerciseIds.every((id, i) => id === originalIds[i])
+            );
+            if (exercisesChanged) {
+              const newName = prompt(
+                "You changed exercises from the original \"" + activeWorkout.name + "\" template.\n\nKeep this name or type a new one:",
+                activeWorkout.name
+              );
+              if (newName !== null && newName.trim()) {
+                activeWorkout.name = newName.trim();
+              }
+            }
             // Capture for template prompt before saveWorkout clears it
             const capturedName = activeWorkout.name;
             const capturedIds = activeWorkout.exercises.map(e => e.exerciseId);
@@ -2546,7 +2583,7 @@ function WorkoutTracker() {
     });
 
     const selectedDate = new Date(workoutDate + "T12:00:00");
-    setActiveWorkout({ date: selectedDate.toISOString(), name: template.name, location: template.location || workoutLocation || "", exercises, warmupNotes: template.warmupNotes || "", cooldownNotes: template.cooldownNotes || "" });
+    setActiveWorkout({ date: selectedDate.toISOString(), name: template.name, location: template.location || workoutLocation || "", exercises, warmupNotes: template.warmupNotes || "", cooldownNotes: template.cooldownNotes || "", originalTemplateExerciseIds: template.exerciseIds || [] });
     setView("active");
   };
 
@@ -2588,7 +2625,7 @@ function WorkoutTracker() {
     const template = { ...planned, location: "" };
     startFromTemplate(template);
     // Add warmup/cooldown notes to the active workout
-    setActiveWorkout(prev => prev ? { ...prev, warmupNotes: planned.warmupNotes || "", cooldownNotes: planned.cooldownNotes || "" } : prev);
+    setActiveWorkout(prev => prev ? { ...prev, warmupNotes: planned.warmupNotes || "", cooldownNotes: planned.cooldownNotes || "", originalTemplateExerciseIds: planned.exerciseIds || [] } : prev);
     // Remove the planned workout since it's now active
     const remaining = (data.plannedWorkouts || []).filter(p => p.id !== planned.id);
     persist({ ...data, plannedWorkouts: remaining });
@@ -2804,7 +2841,43 @@ function WorkoutTracker() {
               <div onClick={() => setExpandedLogIdx(isExpanded ? null : log._idx)}
                 style={{ padding: "14px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.textStrong }}>{log.name}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {editingLogName && editingLogName.idx === log._idx ? (
+                      <input
+                        autoFocus
+                        style={{ ...S.input, fontSize: 13, fontWeight: 700, padding: "2px 6px", width: "100%" }}
+                        value={editingLogName.name}
+                        onChange={e => setEditingLogName({ ...editingLogName, name: e.target.value })}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            const updatedLogs = [...data.workoutLogs];
+                            updatedLogs[log._idx] = { ...updatedLogs[log._idx], name: editingLogName.name.trim() || log.name };
+                            persist({ ...data, workoutLogs: updatedLogs });
+                            setEditingLogName(null);
+                          }
+                          if (e.key === "Escape") setEditingLogName(null);
+                        }}
+                        onBlur={() => {
+                          const updatedLogs = [...data.workoutLogs];
+                          updatedLogs[log._idx] = { ...updatedLogs[log._idx], name: editingLogName.name.trim() || log.name };
+                          persist({ ...data, workoutLogs: updatedLogs });
+                          setEditingLogName(null);
+                        }}
+                        onClick={e => e.stopPropagation()}
+                      />
+                    ) : (
+                      <>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: T.textStrong }}>{log.name}</span>
+                        <button
+                          onClick={e => { e.stopPropagation(); setEditingLogName({ idx: log._idx, name: log.name }); }}
+                          style={{ background: "none", border: "none", color: T.textFaint, cursor: "pointer", padding: 2, display: "flex", alignItems: "center", opacity: 0.5 }}
+                          title="Rename workout"
+                        >
+                          <EditIcon />
+                        </button>
+                      </>
+                    )}
+                  </div>
                   <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2 }}>{formatFullDate(log.date)}</div>
                   {log.location && (
                     <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3 }}>
@@ -3504,6 +3577,18 @@ function WorkoutTracker() {
                 During a workout, tap the blue <strong style={{ color: "#0ea5e9" }}>Add Exercise</strong> button below your exercises to add more. To remove one, tap the <strong style={{ color: "#e94560" }}>X</strong> in the top-right corner of any exercise card. You can also add and remove sets using the + SET / - SET buttons.
               </div>
 
+              {/* Exercise Swap */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#0ea5e9", letterSpacing: 1, marginBottom: 8 }}>EXERCISE SWAP</div>
+              <div style={{ marginBottom: 16, color: T.textMuted, fontSize: 11 }}>
+                Machine taken? During a workout, tap the blue <strong style={{ color: "#0ea5e9" }}>↔ swap icon</strong> on any exercise card. It shows alternatives that target the <strong style={{ color: T.textStrong }}>same muscle group</strong>, plus other exercises in the same category. Pick one and it replaces the original — your last weight for the new exercise auto-loads. The swap is noted in your workout log.
+              </div>
+
+              {/* Exercise Search */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#0ea5e9", letterSpacing: 1, marginBottom: 8 }}>EXERCISE SEARCH</div>
+              <div style={{ marginBottom: 16, color: T.textMuted, fontSize: 11 }}>
+                When picking exercises (in planned workouts, templates, or mid-workout), use the <strong style={{ color: T.textStrong }}>🔍 search bar</strong> at the top of the list. Type an exercise name, muscle group, or category to filter instantly.
+              </div>
+
               {/* Templates */}
               <div style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", letterSpacing: 1, marginBottom: 8 }}>TEMPLATES</div>
               <div style={{ marginBottom: 16, color: T.textMuted, fontSize: 11 }}>
@@ -3555,7 +3640,7 @@ function WorkoutTracker() {
               {/* History */}
               <div style={{ fontSize: 11, fontWeight: 700, color: "#ec4899", letterSpacing: 1, marginBottom: 8 }}>HISTORY & EDITING</div>
               <div style={{ marginBottom: 16, color: T.textMuted, fontSize: 11 }}>
-                The <strong style={{ color: T.textStrong }}>History</strong> tab shows all past workouts. Tap any workout to expand it and see every set. You can <strong style={{ color: "#0ea5e9" }}>edit</strong> a past workout, <strong style={{ color: "#e94560" }}>delete</strong> it, or <strong>copy/share</strong> it as formatted text.
+                The <strong style={{ color: T.textStrong }}>History</strong> tab shows all past workouts. Tap any workout to expand it and see every set. You can <strong style={{ color: "#0ea5e9" }}>edit</strong> a past workout, <strong style={{ color: "#e94560" }}>delete</strong> it, <strong>copy/share</strong> it as formatted text, or tap <strong style={{ color: "#f59e0b" }}>Plan Again</strong> to turn it into a planned workout for another day.
               </div>
 
               {/* Tips */}
