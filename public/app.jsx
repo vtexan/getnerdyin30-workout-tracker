@@ -92,6 +92,23 @@ const DEFAULT_EXERCISES = [
   { id: "farmer-carry", name: "Farmer Carry", category: "carry", muscle: "Full Body / Grip", videoUrl: "https://www.muscleandstrength.com/exercises/farmers-walk" },
   { id: "suitcase-carry", name: "Suitcase Carry", category: "carry", muscle: "Core / Grip", videoUrl: "https://www.muscleandstrength.com/exercises/suitcase-carry" },
   { id: "db-row", name: "Single-Arm DB Row", category: "back", muscle: "Lats / Mid Back", videoUrl: "https://www.muscleandstrength.com/exercises/one-arm-dumbbell-row.html" },
+  { id: "straight-arm-pulldown", name: "Straight-Arm Cable Pulldown", category: "back", muscle: "Lats", videoUrl: "https://www.muscleandstrength.com/exercises/straight-arm-lat-pull-down.html" },
+  { id: "tbar-row", name: "T-Bar Row", category: "back", muscle: "Back", videoUrl: "https://www.muscleandstrength.com/exercises/t-bar-row.html" },
+  { id: "bb-bent-row", name: "Barbell Bent-Over Row", category: "back", muscle: "Back", videoUrl: "https://www.muscleandstrength.com/exercises/bent-over-barbell-row.html" },
+  { id: "face-pull-high", name: "Cable Face Pull (High)", category: "back", muscle: "Rear Delts / Upper Back", videoUrl: "https://www.muscleandstrength.com/exercises/face-pull" },
+  { id: "face-pull-low", name: "Cable Face Pull (Low)", category: "back", muscle: "Rear Delts / Upper Back", videoUrl: "https://www.muscleandstrength.com/exercises/face-pull" },
+  { id: "inverted-row", name: "Inverted Row / TRX Row", category: "back", muscle: "Back", videoUrl: "https://www.muscleandstrength.com/exercises/inverted-row.html" },
+  { id: "reverse-cable-fly", name: "Reverse Cable Fly", category: "back", muscle: "Rear Delts", videoUrl: "https://www.muscleandstrength.com/exercises/cable-reverse-fly.html" },
+  { id: "reverse-pec-deck", name: "Reverse Pec Deck", category: "back", muscle: "Rear Delts", videoUrl: "https://www.muscleandstrength.com/exercises/reverse-machine-flyes.html" },
+  { id: "prone-y-raise", name: "Prone Y-Raise", category: "back", muscle: "Rear Delts / Upper Back", videoUrl: "https://www.muscleandstrength.com/exercises/prone-y-raise" },
+  // Arms
+  { id: "db-hammer-curl", name: "DB Hammer Curl", category: "arms", muscle: "Biceps", videoUrl: "https://www.muscleandstrength.com/exercises/dumbbell-hammer-curl.html" },
+  { id: "db-incline-curl", name: "DB Incline Curl", category: "arms", muscle: "Biceps", videoUrl: "https://www.muscleandstrength.com/exercises/incline-dumbbell-curl.html" },
+  { id: "bb-curl", name: "Barbell Curl", category: "arms", muscle: "Biceps", videoUrl: "https://www.muscleandstrength.com/exercises/standing-barbell-curl.html" },
+  { id: "cable-curl", name: "Cable Curl", category: "arms", muscle: "Biceps", videoUrl: "https://www.muscleandstrength.com/exercises/cable-curl.html" },
+  { id: "preacher-curl", name: "Preacher Curl", category: "arms", muscle: "Biceps", videoUrl: "https://www.muscleandstrength.com/exercises/preacher-curl.html" },
+  { id: "concentration-curl", name: "Concentration Curl", category: "arms", muscle: "Biceps", videoUrl: "https://www.muscleandstrength.com/exercises/concentration-curl.html" },
+  { id: "ez-bar-curl", name: "EZ-Bar Curl", category: "arms", muscle: "Biceps", videoUrl: "https://www.muscleandstrength.com/exercises/ez-bar-curl.html" },
   // Cardio
   { id: "spin", name: "Spin / Cycling", category: "cardio", muscle: "Legs / Cardio", isCardio: true },
   { id: "rowing", name: "Rowing", category: "cardio", muscle: "Full Body / Cardio", isCardio: true },
@@ -105,6 +122,7 @@ const DEFAULT_EXERCISES = [
 const CATEGORY_COLORS = {
   posterior: { accent: "#e94560", label: "Posterior Chain" },
   back: { accent: "#0ea5e9", label: "Back" },
+  arms: { accent: "#06b6d4", label: "Arms" },
   push: { accent: "#f59e0b", label: "Push" },
   legs: { accent: "#22c55e", label: "Legs" },
   core: { accent: "#8b5cf6", label: "Core" },
@@ -112,9 +130,14 @@ const CATEGORY_COLORS = {
   cardio: { accent: "#ff6b35", label: "Cardio" },
 };
 
-const APP_VERSION = "0.13";
-const APP_BUILD_DATE = "2026-02-26";
+const APP_VERSION = "0.14";
+const APP_BUILD_DATE = "2026-03-03";
 const CHANGELOG = [
+  { version: "0.14", date: "2026-03-03", changes: [
+    "New Arms category for bicep isolation exercises",
+    "Added 7 bicep exercises: DB Hammer Curl, DB Incline Curl, Barbell Curl, Cable Curl, Preacher Curl, Concentration Curl, EZ-Bar Curl",
+    "Added 9 back exercises: Straight-Arm Cable Pulldown, T-Bar Row, Barbell Bent-Over Row, Cable Face Pull (High/Low), Inverted Row / TRX Row, Reverse Cable Fly, Reverse Pec Deck, Prone Y-Raise",
+  ]},
   { version: "0.13", date: "2026-02-26", changes: [
     "Rename workouts in history — tap pencil icon next to any workout name",
     "Template deviation detection — prompts to rename when exercises changed from template",
