@@ -130,9 +130,12 @@ const CATEGORY_COLORS = {
   cardio: { accent: "#ff6b35", label: "Cardio" },
 };
 
-const APP_VERSION = "0.14";
+const APP_VERSION = "0.14.1";
 const APP_BUILD_DATE = "2026-03-03";
 const CHANGELOG = [
+  { version: "0.14.1", date: "2026-03-03", changes: [
+    "Fix: Exercise reorder arrows now work — moveItem was incorrectly scoped inside toggleTheme",
+  ]},
   { version: "0.14", date: "2026-03-03", changes: [
     "New Arms category for bicep isolation exercises",
     "Added 7 bicep exercises: DB Hammer Curl, DB Incline Curl, Barbell Curl, Cable Curl, Preacher Curl, Concentration Curl, EZ-Bar Curl",
@@ -424,6 +427,12 @@ function WorkoutTracker() {
   };
 
   const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    if (user) {
+      db.collection("users").doc(user.uid).collection("data").doc("preferences").set({ theme: next }, { merge: true }).catch(e => console.error("Theme save failed:", e));
+    }
+  };
 
   // Reorder helper
   const moveItem = (arr, from, to) => {
@@ -431,12 +440,6 @@ function WorkoutTracker() {
     const [item] = updated.splice(from, 1);
     updated.splice(to, 0, item);
     return updated;
-  };
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    if (user) {
-      db.collection("users").doc(user.uid).collection("data").doc("preferences").set({ theme: next }, { merge: true }).catch(e => console.error("Theme save failed:", e));
-    }
   };
 
   const [dataLoaded, setDataLoaded] = useState(false);
