@@ -130,9 +130,17 @@ const CATEGORY_COLORS = {
   cardio: { accent: "#ff6b35", label: "Cardio" },
 };
 
-const APP_VERSION = "0.14.1";
-const APP_BUILD_DATE = "2026-03-03";
+const APP_VERSION = "0.15";
+const APP_BUILD_DATE = "2026-03-11";
 const CHANGELOG = [
+  { version: "0.15", date: "2026-03-11", changes: [
+    "Recently Deleted — workouts, plans, and templates go to a 30-day trash instead of permanent delete",
+    "Restore any accidentally deleted item from the Recently Deleted section in History",
+    "Safe navigation — 'Done' button when editing past workouts (no more accidental discard)",
+    "Active workouts: 'Back to Dashboard' pauses instead of destroying (auto-save keeps your progress)",
+    "Discard with progress warns and moves to trash instead of permanent delete",
+    "Fix: BUG-007 — editing a planned workout no longer creates duplicates",
+  ]},
   { version: "0.14.1", date: "2026-03-03", changes: [
     "Fix: Exercise reorder arrows now work — moveItem was incorrectly scoped inside toggleTheme",
   ]},
@@ -223,7 +231,19 @@ const CHANGELOG = [
   ]},
 ];
 
-const getInitialData = () => ({ workoutLogs: [], customExercises: [], templates: [], plannedWorkouts: [] });
+const getInitialData = () => ({ workoutLogs: [], customExercises: [], templates: [], plannedWorkouts: [], recentlyDeleted: [] });
+
+// ─── Trash helpers ───
+const TRASH_RETENTION_DAYS = 30;
+const purgeExpiredTrash = (recentlyDeleted) => {
+  const cutoff = Date.now() - (TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  return (recentlyDeleted || []).filter(item => item.deletedAt > cutoff);
+};
+const softDelete = (item, type) => ({
+  ...item,
+  _type: type, // "workout", "planned", "template"
+  deletedAt: Date.now(),
+});
 
 const formatDate = (d) => new Date(d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
@@ -363,7 +383,12 @@ function WorkoutTracker() {
       if (firebaseUser) {
         setUser({ uid: firebaseUser.uid, name: firebaseUser.displayName, email: firebaseUser.email, photo: firebaseUser.photoURL });
         const saved = await loadData(firebaseUser.uid);
-        setData(saved || getInitialData());
+        const loadedData = saved || getInitialData();
+        // Auto-purge expired trash items (older than 30 days)
+        if (loadedData.recentlyDeleted && loadedData.recentlyDeleted.length > 0) {
+          loadedData.recentlyDeleted = purgeExpiredTrash(loadedData.recentlyDeleted);
+        }
+        setData(loadedData);
         setDataLoaded(true);
         // Restore active workout draft if exists
         try {
@@ -1298,7 +1323,7 @@ function WorkoutTracker() {
                   ))}
 
                   {/* Plan workout button */}
-                  {!planningDate && (
+                  {!planningDate && !editingPlan && (
                     <button onClick={() => {
                       const [y, m, d] = selectedKey.split("-").map(Number);
                       const dateStr = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -1313,7 +1338,7 @@ function WorkoutTracker() {
                   )}
 
                   {/* Inline planning view */}
-                  {planningDate && selectedKey && (() => {
+                  {planningDate && !editingPlan && selectedKey && (() => {
                     const [y, m, d] = selectedKey.split("-").map(Number);
                     const dateStr = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
                     if (planningDate !== dateStr) return null;
@@ -2297,8 +2322,51 @@ function WorkoutTracker() {
         }}>
           <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><CheckIcon /> {editingLogIdx !== null ? "SAVE CHANGES" : "FINISH WORKOUT"}</span>
         </button>
-        <button onClick={() => { setActiveWorkout(null); setEditingLogIdx(null); setView(editingLogIdx !== null ? "history" : "dashboard"); }} style={{ ...S.btnOutline("#333"), marginTop: 40, fontSize: 9, opacity: 0.5 }}>
-          {editingLogIdx !== null ? "CANCEL EDIT" : "DISCARD"}
+        {/* ── Safe navigation: DONE (editing) or BACK TO DASHBOARD (new workout) ── */}
+        {editingLogIdx !== null ? (
+          <button onClick={() => {
+            // Just go back — the original workout in history is untouched
+            setActiveWorkout(null);
+            setEditingLogIdx(null);
+            setView("history");
+          }} style={{ ...S.btnOutline("#0ea5e9"), marginTop: 12 }}>
+            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><ArrowLeftIcon /> DONE — BACK TO HISTORY</span>
+          </button>
+        ) : (
+          <button onClick={() => {
+            // Navigate away — draft auto-save keeps the workout alive
+            setView("dashboard");
+          }} style={{ ...S.btnOutline("#0ea5e9"), marginTop: 12 }}>
+            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><ArrowLeftIcon /> BACK TO DASHBOARD</span>
+          </button>
+        )}
+
+        {/* ── Discard (destructive — pushed way down, protected) ── */}
+        <button onClick={() => {
+          const hasProgress = activeWorkout.exercises.some(ex =>
+            ex.isCardio ? ex.completed :
+            (ex.warmupSets || []).some(s => s.completed) || (ex.workingSets || []).some(s => s.completed)
+          );
+          if (editingLogIdx !== null) {
+            // Editing — discard just means "don't save edits", original stays intact
+            setActiveWorkout(null);
+            setEditingLogIdx(null);
+            setView("history");
+            return;
+          }
+          if (hasProgress) {
+            if (!confirm("You have " + activeWorkout.exercises.reduce((s, ex) => s + (ex.isCardio ? (ex.completed ? 1 : 0) : (ex.workingSets || []).filter(s => s.completed).length), 0) + " completed sets. Discard this workout?\n\nIt will be saved to Recently Deleted for 30 days.")) return;
+            // Soft-delete to trash
+            const deletedItem = softDelete(activeWorkout, "workout");
+            persist({ ...data, recentlyDeleted: [...(data.recentlyDeleted || []), deletedItem] });
+          } else {
+            if (!confirm("Discard this workout?")) return;
+          }
+          setActiveWorkout(null);
+          setEditingLogIdx(null);
+          setView("dashboard");
+        }} style={{ ...S.btnOutline("#e9456033"), marginTop: 40, fontSize: 9, opacity: 0.4, color: "#e94560", borderColor: "#e9456033" }}>
+          DISCARD WORKOUT
         </button>
       </div>
     );
@@ -2515,8 +2583,31 @@ function WorkoutTracker() {
   };
 
   const deleteTemplate = (templateId) => {
-    persist({ ...data, templates: (data.templates || []).filter(t => t.id !== templateId) });
+    const found = (data.templates || []).find(t => t.id === templateId);
+    const trash = found ? [...(data.recentlyDeleted || []), softDelete(found, "template")] : (data.recentlyDeleted || []);
+    persist({ ...data, templates: (data.templates || []).filter(t => t.id !== templateId), recentlyDeleted: trash });
     if (editingTemplate?.id === templateId) setEditingTemplate(null);
+  };
+
+  // ─── Restore from trash ───
+  const restoreFromTrash = (deletedAt) => {
+    const item = (data.recentlyDeleted || []).find(d => d.deletedAt === deletedAt);
+    if (!item) return;
+    const remaining = (data.recentlyDeleted || []).filter(d => d.deletedAt !== deletedAt);
+    const { _type, deletedAt: _, ...restored } = item;
+    if (_type === "workout") {
+      persist({ ...data, workoutLogs: [...data.workoutLogs, restored], recentlyDeleted: remaining });
+    } else if (_type === "planned") {
+      persist({ ...data, plannedWorkouts: [...(data.plannedWorkouts || []), restored], recentlyDeleted: remaining });
+    } else if (_type === "template") {
+      persist({ ...data, templates: [...(data.templates || []), restored], recentlyDeleted: remaining });
+    }
+  };
+
+  const emptyTrash = () => {
+    if (confirm("Permanently delete all items in the trash? This cannot be undone.")) {
+      persist({ ...data, recentlyDeleted: [] });
+    }
   };
 
   const openTemplateEditor = (tpl) => {
@@ -2662,8 +2753,10 @@ function WorkoutTracker() {
   };
 
   const deletePlannedWorkout = (id) => {
+    const found = (data.plannedWorkouts || []).find(p => p.id === id);
     const remaining = (data.plannedWorkouts || []).filter(p => p.id !== id);
-    persist({ ...data, plannedWorkouts: remaining });
+    const trash = found ? [...(data.recentlyDeleted || []), softDelete(found, "planned")] : (data.recentlyDeleted || []);
+    persist({ ...data, plannedWorkouts: remaining, recentlyDeleted: trash });
     if (editingPlan?.id === id) setEditingPlan(null);
   };
 
@@ -2756,8 +2849,10 @@ function WorkoutTracker() {
     const formatFullDate = (d) => new Date(d).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
     const deleteWorkout = (idx) => {
-      const updated = { ...data, workoutLogs: data.workoutLogs.filter((_, i) => i !== idx) };
-      persist(updated);
+      const deletedItem = softDelete(data.workoutLogs[idx], "workout");
+      const updatedLogs = data.workoutLogs.filter((_, i) => i !== idx);
+      const trash = [...(data.recentlyDeleted || []), deletedItem];
+      persist({ ...data, workoutLogs: updatedLogs, recentlyDeleted: trash });
       setExpandedLogIdx(null);
     };
 
@@ -3069,6 +3164,53 @@ function WorkoutTracker() {
             </div>
           );
         })}
+
+        {/* ── RECENTLY DELETED ── */}
+        {(data.recentlyDeleted || []).length > 0 && (
+          <div style={{ marginTop: 24 }}>
+            <div style={{ ...S.sectionLabel, color: "#e94560", marginBottom: 10 }}>
+              <TrashIcon /> RECENTLY DELETED ({(data.recentlyDeleted || []).length})
+            </div>
+            <div style={{ fontSize: 9, color: T.textFaint, marginBottom: 10 }}>
+              Items are kept for 30 days, then permanently removed.
+            </div>
+            {(data.recentlyDeleted || []).sort((a, b) => b.deletedAt - a.deletedAt).map((item, i) => {
+              const typeLabels = { workout: "WORKOUT", planned: "PLANNED", template: "TEMPLATE" };
+              const typeColors = { workout: "#22c55e", planned: "#0ea5e9", template: "#f59e0b" };
+              const daysAgo = Math.floor((Date.now() - item.deletedAt) / (24 * 60 * 60 * 1000));
+              const daysLeft = 30 - daysAgo;
+              const itemName = item.name || "Untitled";
+              const itemDate = item.date ? formatDate(item.date) : "";
+              const exerciseCount = item.exercises ? item.exercises.length : (item.exerciseIds ? item.exerciseIds.length : 0);
+
+              return (
+                <div key={item.deletedAt + "-" + i} style={{ ...S.card, padding: "12px 14px", marginBottom: 6, opacity: 0.7, borderColor: "#e9456022" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <span style={{ fontSize: 7, color: typeColors[item._type] || "#888", background: (typeColors[item._type] || "#888") + "15", padding: "1px 6px", borderRadius: 3, fontWeight: 700, letterSpacing: 0.5 }}>{typeLabels[item._type] || "ITEM"}</span>
+                        <span style={{ fontSize: 8, color: T.textFaint }}>{daysAgo === 0 ? "today" : daysAgo === 1 ? "yesterday" : daysAgo + " days ago"} · {daysLeft}d left</span>
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted }}>{itemName}</div>
+                      <div style={{ fontSize: 9, color: T.textFaint, marginTop: 2 }}>
+                        {itemDate && <span>{itemDate} · </span>}
+                        {exerciseCount > 0 && <span>{exerciseCount} exercises</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => restoreFromTrash(item.deletedAt)}
+                      style={{ ...S.btn("#22c55e"), width: "auto", padding: "8px 14px", fontSize: 9 }}>
+                      RESTORE
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            <button onClick={emptyTrash}
+              style={{ ...S.btnOutline("#e94560"), marginTop: 8, fontSize: 9, opacity: 0.5, padding: "8px 14px" }}>
+              EMPTY TRASH
+            </button>
+          </div>
+        )}
       </div>
     );
   };
@@ -3670,7 +3812,7 @@ function WorkoutTracker() {
               {/* History */}
               <div style={{ fontSize: 11, fontWeight: 700, color: "#ec4899", letterSpacing: 1, marginBottom: 8 }}>HISTORY & EDITING</div>
               <div style={{ marginBottom: 16, color: T.textMuted, fontSize: 11 }}>
-                The <strong style={{ color: T.textStrong }}>History</strong> tab shows all past workouts. Tap any workout to expand it and see every set. You can <strong style={{ color: "#0ea5e9" }}>edit</strong> a past workout, <strong style={{ color: "#e94560" }}>delete</strong> it, <strong>copy/share</strong> it as formatted text, or tap <strong style={{ color: "#f59e0b" }}>Plan Again</strong> to turn it into a planned workout for another day.
+                The <strong style={{ color: T.textStrong }}>History</strong> tab shows all past workouts. Tap any workout to expand it and see every set. You can <strong style={{ color: "#0ea5e9" }}>edit</strong> a past workout, <strong style={{ color: "#e94560" }}>delete</strong> it, <strong>copy/share</strong> it as formatted text, or tap <strong style={{ color: "#f59e0b" }}>Plan Again</strong> to turn it into a planned workout for another day. When editing, tap <strong style={{ color: "#0ea5e9" }}>Done — Back to History</strong> to exit without saving changes (the original stays intact). Deleted items go to <strong style={{ color: "#e94560" }}>Recently Deleted</strong> at the bottom of History where you can restore them for up to 30 days.
               </div>
 
               {/* Tips */}
