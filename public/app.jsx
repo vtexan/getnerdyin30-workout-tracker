@@ -136,7 +136,7 @@ const CATEGORY_COLORS = {
   tabata: { accent: "#a855f7", label: "Tabata" },
 };
 
-const APP_VERSION = "0.16.3";
+const APP_VERSION = "0.16.4";
 const APP_BUILD_DATE = "2026-03-11";
 const CHANGELOG = [
   { version: "0.16.3", date: "2026-03-11", changes: [
@@ -991,9 +991,27 @@ function WorkoutTracker() {
                   <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>SAVE CHANGES</span>
                 </button>
                 <button onClick={() => {
-                  updatePlannedWorkout();
-                  const updated = { ...editingPlan, name: planName || editingPlan.name, exerciseIds: planExerciseConfigs.map(c => c.exerciseId), exerciseConfigs: planExerciseConfigs, warmupNotes: planWarmup, cooldownNotes: planCooldown };
-                  setWorkoutDate(updated.date);
+                  // Build the updated plan object locally — don't call updatePlannedWorkout()
+                  // which clears state before startPlannedWorkout can read it
+                  const exerciseIds = planExerciseConfigs.map(c => c.exerciseId);
+                  let finalName = planName.trim();
+                  if (!finalName) {
+                    const cats = [...new Set(exerciseIds.map(id => {
+                      const ex = allExercises.find(e => e.id === id);
+                      return ex ? (CATEGORY_COLORS[ex.category]?.label || ex.category) : null;
+                    }).filter(Boolean))];
+                    finalName = cats.join(" + ") || "Workout";
+                  }
+                  const updated = { ...editingPlan, name: finalName, exerciseIds, exerciseConfigs: planExerciseConfigs, warmupNotes: planWarmup, cooldownNotes: planCooldown };
+                  // Save the updated plan first, then start it
+                  const remaining = (data.plannedWorkouts || []).map(p => p.id === editingPlan.id ? updated : p);
+                  persist({ ...data, plannedWorkouts: remaining });
+                  setEditingPlan(null);
+                  setPlanningDate(null);
+                  setPlanExerciseConfigs([]);
+                  setPlanName("");
+                  setPlanWarmup("");
+                  setPlanCooldown("");
                   startPlannedWorkout(updated);
                 }}
                   style={{ ...S.btn("#22c55e"), flex: 1, padding: "12px 16px" }}>
@@ -1350,7 +1368,6 @@ function WorkoutTracker() {
                           <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><EditIcon /> EDIT PLAN</span>
                         </button>
                         <button onClick={() => {
-                          setWorkoutDate(plan.date);
                           startPlannedWorkout(plan);
                         }} style={{ ...S.btn("#22c55e"), flex: 1, padding: "10px 16px", fontSize: 11 }}>
                           <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><PlayIcon /> START</span>
@@ -2981,7 +2998,7 @@ function WorkoutTracker() {
     setTplCooldown("");
   };
 
-  const startFromTemplate = (template) => {
+  const startFromTemplate = (template, dateOverride) => {
     if (activeWorkout && activeWorkout.exercises) {
       if (!confirm("You have a workout in progress (" + activeWorkout.name + "). Starting a new one will replace it. Continue?")) return;
     }
@@ -3052,7 +3069,7 @@ function WorkoutTracker() {
       };
     });
 
-    const selectedDate = new Date(workoutDate + "T12:00:00");
+    const selectedDate = new Date((dateOverride || workoutDate) + "T12:00:00");
     setActiveWorkout({ date: selectedDate.toISOString(), name: template.name, location: template.location || workoutLocation || "", exercises, warmupNotes: template.warmupNotes || "", cooldownNotes: template.cooldownNotes || "", originalTemplateExerciseIds: template.exerciseIds || [] });
     setView("active");
   };
@@ -3091,9 +3108,9 @@ function WorkoutTracker() {
   };
 
   const startPlannedWorkout = (planned) => {
-    // Reuse startFromTemplate logic since data shape is the same
+    // Pass the plan's date directly — don't rely on workoutDate state (race condition)
     const template = { ...planned, location: "" };
-    startFromTemplate(template);
+    startFromTemplate(template, planned.date);
     // Add warmup/cooldown notes to the active workout
     setActiveWorkout(prev => prev ? { ...prev, warmupNotes: planned.warmupNotes || "", cooldownNotes: planned.cooldownNotes || "", originalTemplateExerciseIds: planned.exerciseIds || [] } : prev);
     // Remove the planned workout since it's now active
