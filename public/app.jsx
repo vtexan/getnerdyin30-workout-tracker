@@ -136,9 +136,12 @@ const CATEGORY_COLORS = {
   tabata: { accent: "#a855f7", label: "Tabata" },
 };
 
-const APP_VERSION = "0.16.1";
+const APP_VERSION = "0.16.2";
 const APP_BUILD_DATE = "2026-03-11";
 const CHANGELOG = [
+  { version: "0.16.2", date: "2026-03-11", changes: [
+    "Code cleanup — removed dead geolocation detection code, fixed duplicate changelog entry, reorganized state declarations into labeled groups",
+  ]},
   { version: "0.16.1", date: "2026-03-11", changes: [
     "Reorder exercises mid-workout — up/down arrows on every exercise card",
   ]},
@@ -163,10 +166,6 @@ const CHANGELOG = [
     "New Arms category for bicep isolation exercises",
     "Added 7 bicep exercises: DB Hammer Curl, DB Incline Curl, Barbell Curl, Cable Curl, Preacher Curl, Concentration Curl, EZ-Bar Curl",
     "Added 9 back exercises: Straight-Arm Cable Pulldown, T-Bar Row, Barbell Bent-Over Row, Cable Face Pull (High/Low), Inverted Row / TRX Row, Reverse Cable Fly, Reverse Pec Deck, Prone Y-Raise",
-  ]},
-  { version: "0.13", date: "2026-02-26", changes: [
-    "Rename workouts in history — tap pencil icon next to any workout name",
-    "Template deviation detection — prompts to rename when exercises changed from template",
   ]},
   { version: "0.13", date: "2026-02-26", changes: [
     "Rename workouts in history — tap pencil icon next to any workout name",
@@ -353,52 +352,66 @@ const TemplateIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill=
 const CalendarIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
 
 function WorkoutTracker() {
+  // ── Core app state ──
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("dashboard");
-  const [selectedExercises, setSelectedExercises] = useState([]);
-  const [workoutName, setWorkoutName] = useState("");
-  const [activeWorkout, setActiveWorkout] = useState(null);
-  const [showAddExercise, setShowAddExercise] = useState(false);
-  const [newExercise, setNewExercise] = useState({ name: "", category: "posterior", muscle: "", videoUrl: "" });
-  const [editingExercise, setEditingExercise] = useState(null);
-  const [librarySearch, setLibrarySearch] = useState("");
   const [theme, setTheme] = useState("dark");
+
+  // ── Auth ──
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
-  const [expandedLogIdx, setExpandedLogIdx] = useState(null);
-  const [calendarMonth, setCalendarMonth] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
-  const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
+
+  // ── Active workout ──
+  const [activeWorkout, setActiveWorkout] = useState(null);
+  const [selectedExercises, setSelectedExercises] = useState([]);
+  const [workoutName, setWorkoutName] = useState("");
+  const [workoutDate, setWorkoutDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [workoutLocation, setWorkoutLocation] = useState("");
   const [locationSearch, setLocationSearch] = useState("");
-  const [nearbyGyms, setNearbyGyms] = useState([]);
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationDetected, setLocationDetected] = useState(false);
-  const [editingLogIdx, setEditingLogIdx] = useState(null);
-  const [workoutDate, setWorkoutDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [copiedIdx, setCopiedIdx] = useState(null);
-  const [sharedExercises, setSharedExercises] = useState([]);
-  const [shareToLibrary, setShareToLibrary] = useState(true);
-  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
-  const [templateName, setTemplateName] = useState("");
-  const [buildingTemplate, setBuildingTemplate] = useState(null); // { name, location, exercises: [{exerciseId, targetWeight, targetSets, targetReps}] }
   const [showMidWorkoutPicker, setShowMidWorkoutPicker] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
-  const [planningDate, setPlanningDate] = useState(null); // date string for planning a workout
-  const [planExerciseConfigs, setPlanExerciseConfigs] = useState([]); // [{exerciseId, targetWeight, warmupWeight, targetSets, targetReps}]
+  const [swappingExerciseIdx, setSwappingExerciseIdx] = useState(null); // index of exercise being swapped
+
+  // ── Plan editor (new plan or editing existing) ──
+  const [planningDate, setPlanningDate] = useState(null);         // date string being planned
+  const [editingPlan, setEditingPlan] = useState(null);           // planned workout object being edited
   const [planName, setPlanName] = useState("");
-  const [exerciseSearch, setExerciseSearch] = useState("");
+  const [planExerciseConfigs, setPlanExerciseConfigs] = useState([]); // [{exerciseId, targetWeight, warmupWeight, targetSets, targetReps}]
   const [planWarmup, setPlanWarmup] = useState("");
   const [planCooldown, setPlanCooldown] = useState("");
-  const [editingPlan, setEditingPlan] = useState(null); // planned workout being edited
-  const [editingTemplate, setEditingTemplate] = useState(null); // template being edited
+
+  // ── Template editor ──
+  const [editingTemplate, setEditingTemplate] = useState(null);   // template object being edited
   const [tplName, setTplName] = useState("");
   const [tplExerciseConfigs, setTplExerciseConfigs] = useState([]);
   const [tplWarmup, setTplWarmup] = useState("");
   const [tplCooldown, setTplCooldown] = useState("");
-  const [swappingExerciseIdx, setSwappingExerciseIdx] = useState(null); // index of exercise being swapped in active workout
-  const [editingLogName, setEditingLogName] = useState(null); // { idx, name } for inline rename in history
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [buildingTemplate, setBuildingTemplate] = useState(null); // { name, location, exercises: [{exerciseId, targetWeight, targetSets, targetReps}] }
+
+  // ── History & log editing ──
+  const [editingLogIdx, setEditingLogIdx] = useState(null);
+  const [editingLogName, setEditingLogName] = useState(null);     // { idx, name } for inline rename
+  const [expandedLogIdx, setExpandedLogIdx] = useState(null);
+  const [copiedIdx, setCopiedIdx] = useState(null);
+
+  // ── Exercise library ──
+  const [sharedExercises, setSharedExercises] = useState([]);
+  const [shareToLibrary, setShareToLibrary] = useState(true);
+  const [showAddExercise, setShowAddExercise] = useState(false);
+  const [newExercise, setNewExercise] = useState({ name: "", category: "posterior", muscle: "", videoUrl: "" });
+  const [editingExercise, setEditingExercise] = useState(null);
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [exerciseSearch, setExerciseSearch] = useState("");
+
+  // ── Calendar ──
+  const [calendarMonth, setCalendarMonth] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
+
+  // ── UI toggles ──
+  const [showHelp, setShowHelp] = useState(false);
   const [dismissedHints, setDismissedHints] = useState(() => {
     try { return JSON.parse(localStorage.getItem("gn30-hints") || "{}"); } catch { return {}; }
   });
@@ -650,8 +663,6 @@ function WorkoutTracker() {
     setWorkoutName("");
     setWorkoutLocation("");
     setWorkoutDate(new Date().toISOString().split("T")[0]);
-    setNearbyGyms([]);
-    setLocationDetected(false);
     setView("dashboard");
   };
 
@@ -675,37 +686,6 @@ function WorkoutTracker() {
       if (gyms.length >= 5) break;
     }
     return gyms;
-  };
-
-  const detectLocation = () => {
-    if (!navigator.geolocation) return;
-    setLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const { latitude, longitude } = pos.coords;
-          // Use Nominatim (free, no API key) to reverse geocode nearby places
-          const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=18`);
-          const data = await resp.json();
-
-          // Also search for nearby gyms/fitness
-          const searchResp = await fetch(`https://nominatim.openstreetmap.org/search?q=gym+fitness&format=json&limit=5&viewbox=${longitude-0.02},${latitude+0.02},${longitude+0.02},${latitude-0.02}&bounded=1`);
-          const nearby = await searchResp.json();
-
-          const gymNames = nearby.map(p => p.display_name.split(",")[0].trim()).filter(n => n.length > 0);
-          setNearbyGyms(gymNames);
-          setLocationDetected(true);
-        } catch (e) {
-          console.error("Location lookup failed:", e);
-        }
-        setLocationLoading(false);
-      },
-      (err) => {
-        console.error("Geolocation error:", err);
-        setLocationLoading(false);
-      },
-      { timeout: 10000 }
-    );
   };
 
   // ─── Theme tokens ───
