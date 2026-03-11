@@ -117,6 +117,11 @@ const DEFAULT_EXERCISES = [
   { id: "walk", name: "Walk", category: "cardio", muscle: "Low Impact / Cardio", isCardio: true },
   { id: "elliptical", name: "Elliptical", category: "cardio", muscle: "Full Body / Cardio", isCardio: true },
   { id: "stair-climber", name: "Stair Climber", category: "cardio", muscle: "Legs / Glutes", isCardio: true },
+  // Tabata
+  { id: "tabata-plank-superman", name: "Tabata: Plank / Superman", category: "tabata", muscle: "Core / Full Body", isTabata: true },
+  { id: "tabata-jumping-jacks", name: "Tabata: Jumping Jacks", category: "tabata", muscle: "Full Body / Cardio", isTabata: true },
+  { id: "tabata-squat-thrust", name: "Tabata: Squat / Thrust", category: "tabata", muscle: "Full Body", isTabata: true },
+  { id: "tabata-custom", name: "Tabata (Custom)", category: "tabata", muscle: "Full Body", isTabata: true },
 ];
 
 const CATEGORY_COLORS = {
@@ -128,11 +133,18 @@ const CATEGORY_COLORS = {
   core: { accent: "#8b5cf6", label: "Core" },
   carry: { accent: "#ec4899", label: "Carry" },
   cardio: { accent: "#ff6b35", label: "Cardio" },
+  tabata: { accent: "#a855f7", label: "Tabata" },
 };
 
-const APP_VERSION = "0.15";
+const APP_VERSION = "0.16";
 const APP_BUILD_DATE = "2026-03-11";
 const CHANGELOG = [
+  { version: "0.16", date: "2026-03-11", changes: [
+    "New Tabata category — log rounds (20s on / 10s off), tap to complete each round, + button to add more",
+    "New Carry category — log weight, laps, and optional distance per set, + button to add sets",
+    "Tabata and Carry exercises render correctly in history and export",
+    "Added 4 built-in Tabata exercises to the library",
+  ]},
   { version: "0.15", date: "2026-03-11", changes: [
     "Recently Deleted — workouts, plans, and templates go to a 30-day trash instead of permanent delete",
     "Restore any accidentally deleted item from the Recently Deleted section in History",
@@ -269,6 +281,22 @@ const getLastCardioStats = (exerciseId, logs) => {
     if (found) return { duration: found.duration || 0, distance: found.distance || 0, calories: found.calories || 0, avgHeartRate: found.avgHeartRate || 0 };
   }
   return null;
+};
+
+const getLastCarryStats = (exerciseId, logs) => {
+  for (let i = logs.length - 1; i >= 0; i--) {
+    const found = logs[i].exercises.find(e => e.exerciseId === exerciseId && e.isCarry);
+    if (found) return { sets: found.sets || [] };
+  }
+  return null;
+};
+
+const getLastTabataRounds = (exerciseId, logs) => {
+  for (let i = logs.length - 1; i >= 0; i--) {
+    const found = logs[i].exercises.find(e => e.exerciseId === exerciseId && e.isTabata);
+    if (found) return (found.rounds || []).filter(r => r.completed).length;
+  }
+  return 0;
 };
 
 const getProgressionSuggestion = (exerciseId, logs) => {
@@ -543,6 +571,29 @@ function WorkoutTracker() {
           avgHeartRate: lastCardio?.avgHeartRate || 0,
           notes: "",
           completed: false,
+        };
+      }
+
+      const isCarry = ex.category === "carry";
+      const isTabata = ex.isTabata || ex.category === "tabata";
+
+      if (isCarry) {
+        const lastCarry = getLastCarryStats(id, data.workoutLogs);
+        const lastSet = lastCarry?.sets?.[0] || {};
+        return {
+          exerciseId: id, name: ex.name, category: ex.category, isCarry: true,
+          sets: [{ weight: lastSet.weight || 0, laps: lastSet.laps || 1, distance: "", completed: false }],
+          notes: "",
+        };
+      }
+
+      if (isTabata) {
+        const lastRounds = getLastTabataRounds(id, data.workoutLogs);
+        const startRounds = lastRounds > 0 ? lastRounds : 1;
+        return {
+          exerciseId: id, name: ex.name, category: ex.category, isTabata: true,
+          rounds: Array.from({ length: startRounds }, () => ({ completed: false })),
+          notes: "",
         };
       }
 
@@ -1733,7 +1784,11 @@ function WorkoutTracker() {
       const ex = activeWorkout.exercises[exIdx];
       const hasProgress = ex.isCardio
         ? ex.completed
-        : (ex.warmupSets || []).some(s => s.completed) || (ex.workingSets || []).some(s => s.completed);
+        : ex.isCarry
+          ? (ex.sets || []).some(s => s.completed)
+          : ex.isTabata
+            ? (ex.rounds || []).some(r => r.completed)
+            : (ex.warmupSets || []).some(s => s.completed) || (ex.workingSets || []).some(s => s.completed);
       if (hasProgress && !confirm(`Remove "${ex.name}"? You have logged sets on this exercise.`)) return;
       if (!hasProgress && !confirm(`Remove "${ex.name}" from this workout?`)) return;
       const updated = { ...activeWorkout, exercises: activeWorkout.exercises.filter((_, i) => i !== exIdx) };
@@ -1754,6 +1809,21 @@ function WorkoutTracker() {
           duration: lastCardio?.duration || 0, distance: lastCardio?.distance || 0,
           calories: lastCardio?.calories || 0, avgHeartRate: lastCardio?.avgHeartRate || 0,
           notes: "Swapped from: " + oldEx.name, completed: false,
+        };
+      } else if (newEx.category === "carry") {
+        const lastCarry = getLastCarryStats(newExerciseId, data.workoutLogs);
+        const lastSet = lastCarry?.sets?.[0] || {};
+        replacement = {
+          exerciseId: newExerciseId, name: newEx.name, category: newEx.category, isCarry: true,
+          sets: [{ weight: lastSet.weight || 0, laps: lastSet.laps || 1, distance: "", completed: false }],
+          notes: "Swapped from: " + oldEx.name,
+        };
+      } else if (newEx.isTabata || newEx.category === "tabata") {
+        const lastRounds = getLastTabataRounds(newExerciseId, data.workoutLogs);
+        replacement = {
+          exerciseId: newExerciseId, name: newEx.name, category: newEx.category, isTabata: true,
+          rounds: Array.from({ length: lastRounds > 0 ? lastRounds : 1 }, () => ({ completed: false })),
+          notes: "Swapped from: " + oldEx.name,
         };
       } else {
         const lastWorking = getLastWorkingWeight(newExerciseId, data.workoutLogs);
@@ -1788,6 +1858,8 @@ function WorkoutTracker() {
       const isCardio = ex.isCardio || ex.category === "cardio";
 
       let newEx;
+      const isCarryMid = ex.category === "carry";
+      const isTabataMid = ex.isTabata || ex.category === "tabata";
       if (isCardio) {
         const lastCardio = getLastCardioStats(id, data.workoutLogs);
         newEx = {
@@ -1795,6 +1867,21 @@ function WorkoutTracker() {
           duration: lastCardio?.duration || 0, distance: lastCardio?.distance || 0,
           calories: lastCardio?.calories || 0, avgHeartRate: lastCardio?.avgHeartRate || 0,
           notes: "", completed: false,
+        };
+      } else if (isCarryMid) {
+        const lastCarry = getLastCarryStats(id, data.workoutLogs);
+        const lastSet = lastCarry?.sets?.[0] || {};
+        newEx = {
+          exerciseId: id, name: ex.name, category: ex.category, isCarry: true,
+          sets: [{ weight: lastSet.weight || 0, laps: lastSet.laps || 1, distance: "", completed: false }],
+          notes: "",
+        };
+      } else if (isTabataMid) {
+        const lastRounds = getLastTabataRounds(id, data.workoutLogs);
+        newEx = {
+          exerciseId: id, name: ex.name, category: ex.category, isTabata: true,
+          rounds: Array.from({ length: lastRounds > 0 ? lastRounds : 1 }, () => ({ completed: false })),
+          notes: "",
         };
       } else {
         const lastWorking = getLastWorkingWeight(id, data.workoutLogs);
@@ -1819,8 +1906,18 @@ function WorkoutTracker() {
       setShowMidWorkoutPicker(false);
     };
 
-    const totalSets = activeWorkout.exercises.reduce((s, ex) => ex.isCardio ? s + 1 : s + (ex.warmupSets || []).length + (ex.workingSets || []).length, 0);
-    const completedSets = activeWorkout.exercises.reduce((s, ex) => ex.isCardio ? s + (ex.completed ? 1 : 0) : s + (ex.warmupSets || []).filter(s => s.completed).length + (ex.workingSets || []).filter(s => s.completed).length, 0);
+    const totalSets = activeWorkout.exercises.reduce((s, ex) => {
+      if (ex.isCardio) return s + 1;
+      if (ex.isCarry) return s + (ex.sets || []).length;
+      if (ex.isTabata) return s + (ex.rounds || []).length;
+      return s + (ex.warmupSets || []).length + (ex.workingSets || []).length;
+    }, 0);
+    const completedSets = activeWorkout.exercises.reduce((s, ex) => {
+      if (ex.isCardio) return s + (ex.completed ? 1 : 0);
+      if (ex.isCarry) return s + (ex.sets || []).filter(s => s.completed).length;
+      if (ex.isTabata) return s + (ex.rounds || []).filter(r => r.completed).length;
+      return s + (ex.warmupSets || []).filter(s => s.completed).length + (ex.workingSets || []).filter(s => s.completed).length;
+    }, 0);
     const progress = totalSets > 0 ? (completedSets / totalSets * 100) : 0;
 
     return (
@@ -1965,6 +2062,186 @@ function WorkoutTracker() {
                       <CheckIcon /> {ex.completed ? "COMPLETED ✓" : "MARK COMPLETE"}
                     </span>
                   </button>
+                </div>
+              </div>
+            );
+          }
+
+          // ── CARRY EXERCISE ──
+          if (ex.isCarry) {
+            const allCarryDone = (ex.sets || []).every(s => s.completed);
+            const carryColor = "#ec4899";
+            const updateCarrySet = (setIdx, field, value) => {
+              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+              const exCopy = { ...updated.exercises[exIdx] };
+              exCopy.sets = [...exCopy.sets];
+              exCopy.sets[setIdx] = { ...exCopy.sets[setIdx], [field]: value };
+              updated.exercises[exIdx] = exCopy;
+              setActiveWorkout(updated);
+            };
+            const toggleCarrySet = (setIdx) => {
+              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+              const exCopy = { ...updated.exercises[exIdx] };
+              exCopy.sets = [...exCopy.sets];
+              exCopy.sets[setIdx] = { ...exCopy.sets[setIdx], completed: !exCopy.sets[setIdx].completed };
+              updated.exercises[exIdx] = exCopy;
+              setActiveWorkout(updated);
+            };
+            const addCarrySet = () => {
+              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+              const exCopy = { ...updated.exercises[exIdx] };
+              const lastSet = exCopy.sets[exCopy.sets.length - 1] || {};
+              exCopy.sets = [...exCopy.sets, { weight: lastSet.weight || 0, laps: lastSet.laps || 1, distance: "", completed: false }];
+              updated.exercises[exIdx] = exCopy;
+              setActiveWorkout(updated);
+            };
+            const removeCarrySet = () => {
+              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+              const exCopy = { ...updated.exercises[exIdx] };
+              if (exCopy.sets.length > 1) {
+                exCopy.sets = exCopy.sets.slice(0, -1);
+                updated.exercises[exIdx] = exCopy;
+                setActiveWorkout(updated);
+              }
+            };
+            return (
+              <div key={exIdx} style={{ ...S.card, borderColor: allCarryDone ? carryColor + "33" : T.border, position: "relative", overflow: "hidden", padding: 0 }}>
+                {allCarryDone && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: carryColor }} />}
+                {/* Header */}
+                <div style={{ padding: "14px 16px 10px", borderBottom: `1px solid ${T.borderSubtle}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <div style={S.tag(carryColor)}>Carry</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: allCarryDone ? carryColor : T.textStrong, marginTop: 6 }}>{ex.name}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {exInfo?.videoUrl && (
+                        <a href={getVideoUrl(exInfo)} target="_blank" rel="noopener noreferrer"
+                          style={{ color: carryColor, display: "flex", alignItems: "center", gap: 4, fontSize: 9, textDecoration: "none", padding: "4px 8px", borderRadius: 4, border: `1px solid ${carryColor}25`, letterSpacing: 0.5 }}>
+                          <PlayIcon /> Form
+                        </a>
+                      )}
+                      <button onClick={() => removeExercise(exIdx)}
+                        style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
+                        <XIcon />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {/* Sets */}
+                <div style={{ padding: "12px 16px" }}>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                    <div style={{ width: 32, fontSize: 7, color: T.textFaint, letterSpacing: 0.5, textAlign: "center", paddingTop: 2 }}></div>
+                    <div style={{ flex: "0 0 68px", fontSize: 7, color: T.textFaint, letterSpacing: 0.5, textAlign: "center" }}>WEIGHT (lb)</div>
+                    <div style={{ flex: "0 0 54px", fontSize: 7, color: T.textFaint, letterSpacing: 0.5, textAlign: "center" }}>LAPS</div>
+                    <div style={{ flex: 1, fontSize: 7, color: T.textFaint, letterSpacing: 0.5 }}>DISTANCE (opt)</div>
+                  </div>
+                  {(ex.sets || []).map((set, setIdx) => (
+                    <div key={setIdx} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6, paddingBottom: 6, borderBottom: setIdx < ex.sets.length - 1 ? `1px solid ${T.borderSubtle}` : "none" }}>
+                      <button onClick={() => toggleCarrySet(setIdx)} style={{ ...S.setBtn(set.completed, false), width: 32, flexShrink: 0 }}>
+                        {set.completed ? <CheckIcon /> : <span style={{ fontSize: 10 }}>S{setIdx + 1}</span>}
+                      </button>
+                      <input type="number" value={set.weight || ""} placeholder="0"
+                        onChange={e => updateCarrySet(setIdx, "weight", parseFloat(e.target.value) || 0)}
+                        style={{ ...S.input, flex: "0 0 68px", textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px", borderColor: carryColor + "33" }} />
+                      <input type="number" value={set.laps || ""} placeholder="1"
+                        onChange={e => updateCarrySet(setIdx, "laps", parseInt(e.target.value) || 0)}
+                        style={{ ...S.input, flex: "0 0 54px", textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px", borderColor: carryColor + "22" }} />
+                      <input type="text" value={set.distance || ""} placeholder="e.g. 40 ft"
+                        onChange={e => updateCarrySet(setIdx, "distance", e.target.value)}
+                        style={{ ...S.input, flex: 1, fontSize: 11, padding: "4px 6px", borderColor: T.borderInput }} />
+                    </div>
+                  ))}
+                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                    <button onClick={addCarrySet} style={{ ...S.btnOutline(carryColor), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><PlusIcon /> SET</button>
+                    {ex.sets.length > 1 && (
+                      <button onClick={removeCarrySet} style={{ ...S.btnOutline("#333"), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><MinusIcon /> SET</button>
+                    )}
+                  </div>
+                </div>
+                {/* Notes */}
+                <div style={{ padding: "10px 16px 14px", borderTop: `1px solid ${T.borderSubtle}` }}>
+                  <textarea value={ex.notes || ""} onChange={e => updateField(exIdx, "notes", e.target.value)}
+                    placeholder="How far, how heavy, how it felt..."
+                    style={{ ...S.input, minHeight: 44, resize: "vertical", fontSize: 11, lineHeight: 1.5, padding: "8px 10px", borderColor: T.borderInput }} />
+                </div>
+              </div>
+            );
+          }
+
+          // ── TABATA EXERCISE ──
+          if (ex.isTabata) {
+            const tabataColor = "#a855f7";
+            const completedRounds = (ex.rounds || []).filter(r => r.completed).length;
+            const allTabataDone = completedRounds === (ex.rounds || []).length && (ex.rounds || []).length > 0;
+            const toggleRound = (roundIdx) => {
+              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+              const exCopy = { ...updated.exercises[exIdx] };
+              exCopy.rounds = [...exCopy.rounds];
+              exCopy.rounds[roundIdx] = { ...exCopy.rounds[roundIdx], completed: !exCopy.rounds[roundIdx].completed };
+              updated.exercises[exIdx] = exCopy;
+              setActiveWorkout(updated);
+            };
+            const addRound = () => {
+              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+              const exCopy = { ...updated.exercises[exIdx] };
+              exCopy.rounds = [...exCopy.rounds, { completed: false }];
+              updated.exercises[exIdx] = exCopy;
+              setActiveWorkout(updated);
+            };
+            const removeRound = () => {
+              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+              const exCopy = { ...updated.exercises[exIdx] };
+              if (exCopy.rounds.length > 1) {
+                exCopy.rounds = exCopy.rounds.slice(0, -1);
+                updated.exercises[exIdx] = exCopy;
+                setActiveWorkout(updated);
+              }
+            };
+            return (
+              <div key={exIdx} style={{ ...S.card, borderColor: allTabataDone ? tabataColor + "33" : T.border, position: "relative", overflow: "hidden", padding: 0 }}>
+                {allTabataDone && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: tabataColor }} />}
+                {/* Header */}
+                <div style={{ padding: "14px 16px 10px", borderBottom: `1px solid ${T.borderSubtle}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <div style={S.tag(tabataColor)}>Tabata</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: allTabataDone ? tabataColor : T.textStrong, marginTop: 6 }}>{ex.name}</div>
+                      <div style={{ fontSize: 9, color: T.textFaint, marginTop: 2 }}>20s on · 10s off · per round</div>
+                    </div>
+                    <button onClick={() => removeExercise(exIdx)}
+                      style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
+                      <XIcon />
+                    </button>
+                  </div>
+                </div>
+                {/* Rounds */}
+                <div style={{ padding: "12px 16px" }}>
+                  <div style={{ fontSize: 8, color: tabataColor, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>
+                    ROUNDS — {completedRounds} / {(ex.rounds || []).length} DONE
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                    {(ex.rounds || []).map((round, roundIdx) => (
+                      <div key={roundIdx} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                        <div style={{ fontSize: 8, color: T.textFaint }}>R{roundIdx + 1}</div>
+                        <button onClick={() => toggleRound(roundIdx)} style={S.setBtn(round.completed, false)}>
+                          {round.completed ? <CheckIcon /> : <span style={{ fontSize: 10 }}>{roundIdx + 1}</span>}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={addRound} style={{ ...S.btnOutline(tabataColor), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><PlusIcon /> ROUND</button>
+                    {(ex.rounds || []).length > 1 && (
+                      <button onClick={removeRound} style={{ ...S.btnOutline("#333"), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><MinusIcon /> ROUND</button>
+                    )}
+                  </div>
+                </div>
+                {/* Notes */}
+                <div style={{ padding: "10px 16px 14px", borderTop: `1px solid ${T.borderSubtle}` }}>
+                  <textarea value={ex.notes || ""} onChange={e => updateField(exIdx, "notes", e.target.value)}
+                    placeholder="Movements used, how it felt..."
+                    style={{ ...S.input, minHeight: 44, resize: "vertical", fontSize: 11, lineHeight: 1.5, padding: "8px 10px", borderColor: T.borderInput }} />
                 </div>
               </div>
             );
@@ -2688,6 +2965,29 @@ function WorkoutTracker() {
       const numSets = config?.targetSets || 3;
       const targetReps = config?.targetReps || 12;
 
+      const isCarryTpl = ex.category === "carry";
+      const isTabataTpl = ex.isTabata || ex.category === "tabata";
+
+      if (isCarryTpl) {
+        const lastCarry = getLastCarryStats(id, data.workoutLogs);
+        const lastSet = lastCarry?.sets?.[0] || {};
+        return {
+          exerciseId: id, name: ex.name, category: ex.category, isCarry: true,
+          sets: [{ weight: config?.targetWeight || lastSet.weight || 0, laps: lastSet.laps || 1, distance: "", completed: false }],
+          notes: config?.notes || "",
+        };
+      }
+
+      if (isTabataTpl) {
+        const lastRounds = getLastTabataRounds(id, data.workoutLogs);
+        const startRounds = config?.targetSets || (lastRounds > 0 ? lastRounds : 1);
+        return {
+          exerciseId: id, name: ex.name, category: ex.category, isTabata: true,
+          rounds: Array.from({ length: startRounds }, () => ({ completed: false })),
+          notes: config?.notes || "",
+        };
+      }
+
       return {
         exerciseId: id,
         name: ex.name,
@@ -2777,10 +3077,10 @@ function WorkoutTracker() {
     if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return;
     const exerciseConfigs = (log.exercises || []).map(ex => ({
       exerciseId: ex.exerciseId,
-      targetWeight: ex.workingWeight || 0,
+      targetWeight: ex.isCarry ? (ex.sets?.[0]?.weight || 0) : (ex.workingWeight || 0),
       warmupWeight: ex.warmupWeight || 0,
-      targetSets: ex.isCardio ? 0 : (ex.workingSets || []).length,
-      targetReps: ex.isCardio ? 0 : Math.max(...(ex.workingSets || []).map(s => s.reps || 0), 0),
+      targetSets: ex.isCardio ? 0 : ex.isCarry ? (ex.sets || []).length : ex.isTabata ? (ex.rounds || []).filter(r => r.completed).length : (ex.workingSets || []).length,
+      targetReps: ex.isCardio || ex.isCarry || ex.isTabata ? 0 : Math.max(...(ex.workingSets || []).map(s => s.reps || 0), 0),
     }));
     const planned = {
       id: Date.now().toString(),
@@ -2882,6 +3182,18 @@ function WorkoutTracker() {
           if (ex.calories > 0) stats.push(`${ex.calories} cal`);
           if (ex.avgHeartRate > 0) stats.push(`${ex.avgHeartRate} avg bpm`);
           if (stats.length > 0) text += `   ${stats.join(" · ")}\n`;
+        } else if (ex.isCarry) {
+          const completedCarrySets = (ex.sets || []).filter(s => s.completed);
+          completedCarrySets.forEach((set, i) => {
+            const parts = [];
+            if (set.weight > 0) parts.push(`${set.weight} lb`);
+            if (set.laps > 0) parts.push(`${set.laps} lap${set.laps !== 1 ? "s" : ""}`);
+            if (set.distance) parts.push(set.distance);
+            text += `   Set ${i + 1}: ${parts.join(" · ")}\n`;
+          });
+        } else if (ex.isTabata) {
+          const completedRoundsExp = (ex.rounds || []).filter(r => r.completed).length;
+          text += `   ${completedRoundsExp} round${completedRoundsExp !== 1 ? "s" : ""} · 20s on / 10s off\n`;
         } else {
           if ((ex.warmupSets || []).length > 0 && ex.warmupWeight > 0) {
             const warmupReps = (ex.warmupSets || []).filter(s => s.completed).map(s => s.reps);
@@ -3071,6 +3383,45 @@ function WorkoutTracker() {
                               {ex.notes}
                             </div>
                           )}
+                        </div>
+                      );
+                    }
+
+                    // ── CARRY in history ──
+                    if (ex.isCarry) {
+                      const completedSetsCarry = (ex.sets || []).filter(s => s.completed);
+                      return (
+                        <div key={exIdx} style={{ padding: "12px 16px", borderBottom: exIdx < log.exercises.length - 1 ? `1px solid ${T.borderSubtle}` : "none" }}>
+                          <div style={S.tag("#ec4899")}>Carry</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: T.textStrong, marginTop: 4, marginBottom: 8 }}>{ex.name}</div>
+                          {completedSetsCarry.map((set, i) => (
+                            <div key={i} style={{ fontSize: 10, color: T.textMuted, marginBottom: 3 }}>
+                              <span style={{ color: "#ec4899", fontWeight: 600, fontSize: 9 }}>SET {i + 1}</span>
+                              {" "}
+                              {set.weight > 0 && <span>{set.weight} lb</span>}
+                              {set.laps > 0 && <span> · {set.laps} {set.laps === 1 ? "lap" : "laps"}</span>}
+                              {set.distance && <span> · {set.distance}</span>}
+                            </div>
+                          ))}
+                          {completedSetsCarry.length === 0 && <div style={{ fontSize: 9, color: T.textFaint, fontStyle: "italic" }}>No sets completed</div>}
+                          {ex.notes && <div style={{ marginTop: 6, padding: "6px 10px", background: T.bgInset, borderRadius: 6, fontSize: 10, color: T.textMuted, lineHeight: 1.5, fontStyle: "italic" }}>{ex.notes}</div>}
+                        </div>
+                      );
+                    }
+
+                    // ── TABATA in history ──
+                    if (ex.isTabata) {
+                      const completedRoundsTabata = (ex.rounds || []).filter(r => r.completed).length;
+                      return (
+                        <div key={exIdx} style={{ padding: "12px 16px", borderBottom: exIdx < log.exercises.length - 1 ? `1px solid ${T.borderSubtle}` : "none" }}>
+                          <div style={S.tag("#a855f7")}>Tabata</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: T.textStrong, marginTop: 4, marginBottom: 6 }}>{ex.name}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 9, color: "#a855f7", fontWeight: 600 }}>ROUNDS</span>
+                            <span style={{ fontSize: 22, fontWeight: 800, color: "#a855f7" }}>{completedRoundsTabata}</span>
+                            <span style={{ fontSize: 9, color: T.textFaint }}>× 20s on / 10s off</span>
+                          </div>
+                          {ex.notes && <div style={{ marginTop: 6, padding: "6px 10px", background: T.bgInset, borderRadius: 6, fontSize: 10, color: T.textMuted, lineHeight: 1.5, fontStyle: "italic" }}>{ex.notes}</div>}
                         </div>
                       );
                     }
@@ -3795,6 +4146,12 @@ function WorkoutTracker() {
               <div style={{ fontSize: 11, fontWeight: 700, color: "#ff6b35", letterSpacing: 1, marginBottom: 8 }}>CARDIO TRACKING</div>
               <div style={{ marginBottom: 16, color: T.textMuted, fontSize: 11 }}>
                 Cardio exercises (Spin, Rowing, Treadmill, etc.) have different fields: <strong style={{ color: T.textStrong }}>duration, distance, calories, and heart rate</strong>. Fill in what you know from your machine or watch, add notes about the class or how it felt, and tap Mark Complete.
+              </div>
+
+              {/* Tabata & Carry */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#a855f7", letterSpacing: 1, marginBottom: 8 }}>TABATA & CARRIES</div>
+              <div style={{ marginBottom: 16, color: T.textMuted, fontSize: 11 }}>
+                <strong style={{ color: "#a855f7" }}>Tabata</strong> exercises track rounds (each round = 20s on / 10s off). Tap a round to mark it complete. Use <strong>+</strong> and <strong>−</strong> to adjust round count. <strong style={{ color: "#ec4899" }}>Carry</strong> exercises track weight, laps, and optional distance per set. Add extra sets with the <strong>+</strong> button.
               </div>
 
               {/* Exercises & Library */}
