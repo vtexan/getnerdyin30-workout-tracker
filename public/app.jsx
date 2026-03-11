@@ -136,7 +136,7 @@ const CATEGORY_COLORS = {
   tabata: { accent: "#a855f7", label: "Tabata" },
 };
 
-const APP_VERSION = "0.16.4";
+const APP_VERSION = "0.16.5";
 const APP_BUILD_DATE = "2026-03-11";
 const CHANGELOG = [
   { version: "0.16.3", date: "2026-03-11", changes: [
@@ -2039,7 +2039,7 @@ function WorkoutTracker() {
     };
 
     // ── renderCarryCard ──
-    const renderCarryCard = (ex, exIdx) => {
+    const renderCarryCard = (ex, exIdx, exInfo) => {
       const allCarryDone = (ex.sets || []).every(s => s.completed);
       const carryColor = "#ec4899";
       const updateCarrySet = (setIdx, field, value) => {
@@ -2237,7 +2237,7 @@ function WorkoutTracker() {
     };
 
     // ── renderStrengthCard ──
-    const renderStrengthCard = (ex, exIdx, catInfo) => {
+    const renderStrengthCard = (ex, exIdx, catInfo, exInfo) => {
     const allWarmupDone = (ex.warmupSets || []).every(s => s.completed);
     const allWorkingDone = (ex.workingSets || []).every(s => s.completed);
     const allDone = allWarmupDone && allWorkingDone;
@@ -2532,13 +2532,13 @@ function WorkoutTracker() {
           if (ex.isCardio) return renderCardioCard(ex, exIdx, catInfo);
 
           // ── CARRY EXERCISE ──
-          if (ex.isCarry) return renderCarryCard(ex, exIdx);
+          if (ex.isCarry) return renderCarryCard(ex, exIdx, exInfo);
 
           // ── TABATA EXERCISE ──
           if (ex.isTabata) return renderTabataCard(ex, exIdx);
 
           // ── STRENGTH EXERCISE ──
-          return renderStrengthCard(ex, exIdx, catInfo);
+          return renderStrengthCard(ex, exIdx, catInfo, exInfo);
 
         })}
 
