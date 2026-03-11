@@ -136,9 +136,12 @@ const CATEGORY_COLORS = {
   tabata: { accent: "#a855f7", label: "Tabata" },
 };
 
-const APP_VERSION = "0.16.2";
+const APP_VERSION = "0.16.3";
 const APP_BUILD_DATE = "2026-03-11";
 const CHANGELOG = [
+  { version: "0.16.3", date: "2026-03-11", changes: [
+    "Refactor — extracted exercise cards into named render functions (renderCardioCard, renderCarryCard, renderTabataCard, renderStrengthCard)",
+  ]},
   { version: "0.16.2", date: "2026-03-11", changes: [
     "Code cleanup — removed dead geolocation detection code, fixed duplicate changelog entry, reorganized state declarations into labeled groups",
   ]},
@@ -1958,547 +1961,567 @@ function WorkoutTracker() {
           </div>
         </div>
 
+    // ═══════════════════════════════════════
+    // EXERCISE CARD RENDER FUNCTIONS
+    // Each function closes over: activeWorkout, setActiveWorkout, allExercises,
+    // data, S, T, dark, swappingExerciseIdx, setSwappingExerciseIdx,
+    // dismissedHints, dismissHint, and all handler functions above.
+    // ═══════════════════════════════════════
+
+    // ── renderCardioCard ──
+    const renderCardioCard = (ex, exIdx, catInfo) => {
+      return (
+        <div key={exIdx} style={{ ...S.card, borderColor: ex.completed ? "#22c55e22" : T.border, position: "relative", overflow: "hidden", padding: 0 }}>
+          {ex.completed && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "#22c55e" }} />}
+
+          <div style={{ padding: "14px 16px 10px", borderBottom: `1px solid ${T.borderSubtle}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <div style={S.tag(catInfo.accent)}>{CATEGORY_COLORS[ex.category]?.label}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: ex.completed ? "#22c55e" : T.textStrong, marginTop: 6 }}>{ex.name}</div>
+              </div>
+              <button onClick={() => setSwappingExerciseIdx(swappingExerciseIdx === exIdx ? null : exIdx)}
+                style={{ background: swappingExerciseIdx === exIdx ? "#0ea5e915" : "none", border: `1px solid ${swappingExerciseIdx === exIdx ? "#0ea5e9" : "#0ea5e925"}`, borderRadius: 4, color: "#0ea5e9", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: swappingExerciseIdx === exIdx ? 1 : 0.6 }}>
+                <SwapIcon />
+              </button>
+                <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
+                  style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === 0 ? T.textFaint : T.textMuted, cursor: exIdx === 0 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === 0 ? 0.3 : 0.6 }}>
+                  <ArrowUpSmall />
+                </button>
+                <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === activeWorkout.exercises.length - 1}
+                  style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === activeWorkout.exercises.length - 1 ? T.textFaint : T.textMuted, cursor: exIdx === activeWorkout.exercises.length - 1 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === activeWorkout.exercises.length - 1 ? 0.3 : 0.6 }}>
+                  <ArrowDownSmall />
+                </button>
+              <button onClick={() => removeExercise(exIdx)}
+                style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
+                <XIcon />
+              </button>
+            </div>
+          </div>
+
+          {/* Cardio swap panel */}
+          {swappingExerciseIdx === exIdx && (() => {
+            const currentIds = activeWorkout.exercises.map(e => e.exerciseId);
+            const cardioAlts = allExercises.filter(e =>
+              e.id !== ex.exerciseId && !currentIds.includes(e.id) && (e.isCardio || e.category === "cardio")
+            );
+            return (
+              <div style={{ padding: "10px 16px", background: dark ? "#0ea5e908" : "#0ea5e906", borderBottom: `1px solid ${T.borderSubtle}` }}>
+                <div style={{ fontSize: 8, color: "#0ea5e9", letterSpacing: 1.5, fontWeight: 700, marginBottom: 6 }}>SWAP — OTHER CARDIO</div>
+                {cardioAlts.length === 0 && (
+                  <div style={{ fontSize: 10, color: T.textFaint, padding: "8px 0" }}>No other cardio exercises available</div>
+                )}
+                {cardioAlts.map(alt => (
+                  <button key={alt.id} onClick={() => swapExercise(exIdx, alt.id)}
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "8px 10px", marginBottom: 3, background: dark ? "#1a1a2e" : "#fff", border: `1px solid ${T.borderSubtle}`, borderRadius: 6, cursor: "pointer", textAlign: "left" }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: T.textStrong }}>{alt.name}</div>
+                      <div style={{ fontSize: 8, color: T.textFaint }}>{alt.muscle}</div>
+                    </div>
+                  </button>
+                ))}
+                <button onClick={() => setSwappingExerciseIdx(null)}
+                  style={{ ...S.btnOutline("#666"), fontSize: 9, padding: "6px 12px", marginTop: 6, width: "100%" }}>CANCEL</button>
+              </div>
+            );
+          })()}
+
+          <div style={{ padding: "12px 16px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 8, color: T.textFaint, letterSpacing: 1, marginBottom: 3 }}>DURATION (min)</div>
+                <input type="number" style={{ ...S.input, fontSize: 14, textAlign: "center", fontWeight: 700 }}
+                  value={ex.duration || ""} placeholder="30"
+                  onChange={e => updateField(exIdx, "duration", Number(e.target.value) || 0)} />
+              </div>
+              <div>
+                <div style={{ fontSize: 8, color: T.textFaint, letterSpacing: 1, marginBottom: 3 }}>DISTANCE (mi)</div>
+                <input type="number" step="0.1" style={{ ...S.input, fontSize: 14, textAlign: "center", fontWeight: 700 }}
+                  value={ex.distance || ""} placeholder="0.0"
+                  onChange={e => updateField(exIdx, "distance", Number(e.target.value) || 0)} />
+              </div>
+              <div>
+                <div style={{ fontSize: 8, color: T.textFaint, letterSpacing: 1, marginBottom: 3 }}>CALORIES</div>
+                <input type="number" style={{ ...S.input, fontSize: 14, textAlign: "center", fontWeight: 700 }}
+                  value={ex.calories || ""} placeholder="0"
+                  onChange={e => updateField(exIdx, "calories", Number(e.target.value) || 0)} />
+              </div>
+              <div>
+                <div style={{ fontSize: 8, color: T.textFaint, letterSpacing: 1, marginBottom: 3 }}>AVG HR (bpm)</div>
+                <input type="number" style={{ ...S.input, fontSize: 14, textAlign: "center", fontWeight: 700 }}
+                  value={ex.avgHeartRate || ""} placeholder="0"
+                  onChange={e => updateField(exIdx, "avgHeartRate", Number(e.target.value) || 0)} />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <textarea value={ex.notes || ""} onChange={e => updateField(exIdx, "notes", e.target.value)}
+              placeholder="Class name, instructor, how it felt..."
+              style={{ ...S.input, minHeight: 40, resize: "vertical", fontSize: 11, lineHeight: 1.5, border: `1px solid ${T.borderInput}` }} />
+
+            {/* Complete toggle */}
+            <button onClick={() => updateField(exIdx, "completed", !ex.completed)}
+              style={{ ...ex.completed ? S.btn("#22c55e") : S.btnOutline("#22c55e"), marginTop: 10, padding: "10px 14px" }}>
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <CheckIcon /> {ex.completed ? "COMPLETED ✓" : "MARK COMPLETE"}
+              </span>
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    // ── renderCarryCard ──
+    const renderCarryCard = (ex, exIdx) => {
+      const allCarryDone = (ex.sets || []).every(s => s.completed);
+      const carryColor = "#ec4899";
+      const updateCarrySet = (setIdx, field, value) => {
+        const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+        const exCopy = { ...updated.exercises[exIdx] };
+        exCopy.sets = [...exCopy.sets];
+        exCopy.sets[setIdx] = { ...exCopy.sets[setIdx], [field]: value };
+        updated.exercises[exIdx] = exCopy;
+        setActiveWorkout(updated);
+      };
+      const toggleCarrySet = (setIdx) => {
+        const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+        const exCopy = { ...updated.exercises[exIdx] };
+        exCopy.sets = [...exCopy.sets];
+        exCopy.sets[setIdx] = { ...exCopy.sets[setIdx], completed: !exCopy.sets[setIdx].completed };
+        updated.exercises[exIdx] = exCopy;
+        setActiveWorkout(updated);
+      };
+      const addCarrySet = () => {
+        const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+        const exCopy = { ...updated.exercises[exIdx] };
+        const lastSet = exCopy.sets[exCopy.sets.length - 1] || {};
+        exCopy.sets = [...exCopy.sets, { weight: lastSet.weight || 0, laps: lastSet.laps || 1, distance: "", completed: false }];
+        updated.exercises[exIdx] = exCopy;
+        setActiveWorkout(updated);
+      };
+      const removeCarrySet = () => {
+        const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+        const exCopy = { ...updated.exercises[exIdx] };
+        if (exCopy.sets.length > 1) {
+          exCopy.sets = exCopy.sets.slice(0, -1);
+          updated.exercises[exIdx] = exCopy;
+          setActiveWorkout(updated);
+        }
+      };
+      return (
+        <div key={exIdx} style={{ ...S.card, borderColor: allCarryDone ? carryColor + "33" : T.border, position: "relative", overflow: "hidden", padding: 0 }}>
+          {allCarryDone && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: carryColor }} />}
+          {/* Header */}
+          <div style={{ padding: "14px 16px 10px", borderBottom: `1px solid ${T.borderSubtle}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <div style={S.tag(carryColor)}>Carry</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: allCarryDone ? carryColor : T.textStrong, marginTop: 6 }}>{ex.name}</div>
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {exInfo?.videoUrl && (
+                  <a href={getVideoUrl(exInfo)} target="_blank" rel="noopener noreferrer"
+                    style={{ color: carryColor, display: "flex", alignItems: "center", gap: 4, fontSize: 9, textDecoration: "none", padding: "4px 8px", borderRadius: 4, border: `1px solid ${carryColor}25`, letterSpacing: 0.5 }}>
+                    <PlayIcon /> Form
+                  </a>
+                )}
+                <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
+                  style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === 0 ? T.textFaint : T.textMuted, cursor: exIdx === 0 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === 0 ? 0.3 : 0.6 }}>
+                  <ArrowUpSmall />
+                </button>
+                <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === activeWorkout.exercises.length - 1}
+                  style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === activeWorkout.exercises.length - 1 ? T.textFaint : T.textMuted, cursor: exIdx === activeWorkout.exercises.length - 1 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === activeWorkout.exercises.length - 1 ? 0.3 : 0.6 }}>
+                  <ArrowDownSmall />
+                </button>
+                <button onClick={() => removeExercise(exIdx)}
+                  style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
+                  <XIcon />
+                </button>
+              </div>
+            </div>
+          </div>
+          {/* Sets */}
+          <div style={{ padding: "12px 16px" }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              <div style={{ width: 32, fontSize: 7, color: T.textFaint, letterSpacing: 0.5, textAlign: "center", paddingTop: 2 }}></div>
+              <div style={{ flex: "0 0 68px", fontSize: 7, color: T.textFaint, letterSpacing: 0.5, textAlign: "center" }}>WEIGHT (lb)</div>
+              <div style={{ flex: "0 0 54px", fontSize: 7, color: T.textFaint, letterSpacing: 0.5, textAlign: "center" }}>LAPS</div>
+              <div style={{ flex: 1, fontSize: 7, color: T.textFaint, letterSpacing: 0.5 }}>DISTANCE (opt)</div>
+            </div>
+            {(ex.sets || []).map((set, setIdx) => (
+              <div key={setIdx} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6, paddingBottom: 6, borderBottom: setIdx < ex.sets.length - 1 ? `1px solid ${T.borderSubtle}` : "none" }}>
+                <button onClick={() => toggleCarrySet(setIdx)} style={{ ...S.setBtn(set.completed, false), width: 32, flexShrink: 0 }}>
+                  {set.completed ? <CheckIcon /> : <span style={{ fontSize: 10 }}>S{setIdx + 1}</span>}
+                </button>
+                <input type="number" value={set.weight || ""} placeholder="0"
+                  onChange={e => updateCarrySet(setIdx, "weight", parseFloat(e.target.value) || 0)}
+                  style={{ ...S.input, flex: "0 0 68px", textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px", borderColor: carryColor + "33" }} />
+                <input type="number" value={set.laps || ""} placeholder="1"
+                  onChange={e => updateCarrySet(setIdx, "laps", parseInt(e.target.value) || 0)}
+                  style={{ ...S.input, flex: "0 0 54px", textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px", borderColor: carryColor + "22" }} />
+                <input type="text" value={set.distance || ""} placeholder="e.g. 40 ft"
+                  onChange={e => updateCarrySet(setIdx, "distance", e.target.value)}
+                  style={{ ...S.input, flex: 1, fontSize: 11, padding: "4px 6px", borderColor: T.borderInput }} />
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+              <button onClick={addCarrySet} style={{ ...S.btnOutline(carryColor), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><PlusIcon /> SET</button>
+              {ex.sets.length > 1 && (
+                <button onClick={removeCarrySet} style={{ ...S.btnOutline("#333"), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><MinusIcon /> SET</button>
+              )}
+            </div>
+          </div>
+          {/* Notes */}
+          <div style={{ padding: "10px 16px 14px", borderTop: `1px solid ${T.borderSubtle}` }}>
+            <textarea value={ex.notes || ""} onChange={e => updateField(exIdx, "notes", e.target.value)}
+              placeholder="How far, how heavy, how it felt..."
+              style={{ ...S.input, minHeight: 44, resize: "vertical", fontSize: 11, lineHeight: 1.5, padding: "8px 10px", borderColor: T.borderInput }} />
+          </div>
+        </div>
+      );
+    };
+
+    // ── renderTabataCard ──
+    const renderTabataCard = (ex, exIdx) => {
+      const tabataColor = "#a855f7";
+      const completedRounds = (ex.rounds || []).filter(r => r.completed).length;
+      const allTabataDone = completedRounds === (ex.rounds || []).length && (ex.rounds || []).length > 0;
+      const toggleRound = (roundIdx) => {
+        const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+        const exCopy = { ...updated.exercises[exIdx] };
+        exCopy.rounds = [...exCopy.rounds];
+        exCopy.rounds[roundIdx] = { ...exCopy.rounds[roundIdx], completed: !exCopy.rounds[roundIdx].completed };
+        updated.exercises[exIdx] = exCopy;
+        setActiveWorkout(updated);
+      };
+      const addRound = () => {
+        const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+        const exCopy = { ...updated.exercises[exIdx] };
+        exCopy.rounds = [...exCopy.rounds, { completed: false }];
+        updated.exercises[exIdx] = exCopy;
+        setActiveWorkout(updated);
+      };
+      const removeRound = () => {
+        const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
+        const exCopy = { ...updated.exercises[exIdx] };
+        if (exCopy.rounds.length > 1) {
+          exCopy.rounds = exCopy.rounds.slice(0, -1);
+          updated.exercises[exIdx] = exCopy;
+          setActiveWorkout(updated);
+        }
+      };
+      return (
+        <div key={exIdx} style={{ ...S.card, borderColor: allTabataDone ? tabataColor + "33" : T.border, position: "relative", overflow: "hidden", padding: 0 }}>
+          {allTabataDone && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: tabataColor }} />}
+          {/* Header */}
+          <div style={{ padding: "14px 16px 10px", borderBottom: `1px solid ${T.borderSubtle}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <div style={S.tag(tabataColor)}>Tabata</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: allTabataDone ? tabataColor : T.textStrong, marginTop: 6 }}>{ex.name}</div>
+                <div style={{ fontSize: 9, color: T.textFaint, marginTop: 2 }}>20s on · 10s off · per round</div>
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
+                  style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === 0 ? T.textFaint : T.textMuted, cursor: exIdx === 0 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === 0 ? 0.3 : 0.6 }}>
+                  <ArrowUpSmall />
+                </button>
+                <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === activeWorkout.exercises.length - 1}
+                  style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === activeWorkout.exercises.length - 1 ? T.textFaint : T.textMuted, cursor: exIdx === activeWorkout.exercises.length - 1 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === activeWorkout.exercises.length - 1 ? 0.3 : 0.6 }}>
+                  <ArrowDownSmall />
+                </button>
+                <button onClick={() => removeExercise(exIdx)}
+                  style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
+                  <XIcon />
+                </button>
+              </div>
+            </div>
+          </div>
+          {/* Rounds */}
+          <div style={{ padding: "12px 16px" }}>
+            <div style={{ fontSize: 8, color: tabataColor, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>
+              ROUNDS — {completedRounds} / {(ex.rounds || []).length} DONE
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+              {(ex.rounds || []).map((round, roundIdx) => (
+                <div key={roundIdx} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                  <div style={{ fontSize: 8, color: T.textFaint }}>R{roundIdx + 1}</div>
+                  <button onClick={() => toggleRound(roundIdx)} style={S.setBtn(round.completed, false)}>
+                    {round.completed ? <CheckIcon /> : <span style={{ fontSize: 10 }}>{roundIdx + 1}</span>}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={addRound} style={{ ...S.btnOutline(tabataColor), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><PlusIcon /> ROUND</button>
+              {(ex.rounds || []).length > 1 && (
+                <button onClick={removeRound} style={{ ...S.btnOutline("#333"), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><MinusIcon /> ROUND</button>
+              )}
+            </div>
+          </div>
+          {/* Notes */}
+          <div style={{ padding: "10px 16px 14px", borderTop: `1px solid ${T.borderSubtle}` }}>
+            <textarea value={ex.notes || ""} onChange={e => updateField(exIdx, "notes", e.target.value)}
+              placeholder="Movements used, how it felt..."
+              style={{ ...S.input, minHeight: 44, resize: "vertical", fontSize: 11, lineHeight: 1.5, padding: "8px 10px", borderColor: T.borderInput }} />
+          </div>
+        </div>
+      );
+    };
+
+    // ── renderStrengthCard ──
+    const renderStrengthCard = (ex, exIdx, catInfo) => {
+    const allWarmupDone = (ex.warmupSets || []).every(s => s.completed);
+    const allWorkingDone = (ex.workingSets || []).every(s => s.completed);
+    const allDone = allWarmupDone && allWorkingDone;
+    const maxSetWeight = Math.max(ex.workingWeight || 0, ...ex.workingSets.map(s => s.weight || 0));
+    const isNewPR = maxSetWeight > 0 && ex.pr && maxSetWeight > ex.pr && allWorkingDone;
+
+    return (
+      <div key={exIdx} style={{ ...S.card, borderColor: allDone ? "#22c55e22" : T.border, position: "relative", overflow: "hidden", padding: 0 }}>
+        {allDone && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "#22c55e" }} />}
+
+        {/* Exercise header */}
+        <div style={{ padding: "14px 16px 10px", borderBottom: `1px solid ${T.borderSubtle}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={S.tag(catInfo.accent)}>{CATEGORY_COLORS[ex.category]?.label}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: allDone ? "#22c55e" : T.textStrong, marginTop: 6 }}>{ex.name}</div>
+              <div style={{ display: "flex", gap: 10, marginTop: 4, alignItems: "center", flexWrap: "wrap" }}>
+                {ex.pr > 0 && <span style={{ fontSize: 9, color: "#f59e0b", letterSpacing: 0.5 }}>PR: {ex.pr} lb</span>}
+                {ex.suggestion && <span style={{ fontSize: 9, color: T.textMuted }}>Target: {ex.suggestion} lb</span>}
+                {ex.lastWorking > 0 && <span style={{ fontSize: 9, color: T.textFaint }}>Last: {ex.lastWorking} lb</span>}
+              </div>
+            </div>
+            {exInfo?.videoUrl && (
+              <a href={getVideoUrl(exInfo)} target="_blank" rel="noopener noreferrer"
+                style={{ color: catInfo.accent, display: "flex", alignItems: "center", gap: 4, fontSize: 9, textDecoration: "none", padding: "4px 8px", borderRadius: 4, border: `1px solid ${catInfo.accent}25`, letterSpacing: 0.5, flexShrink: 0 }}>
+                <PlayIcon /> Form
+              </a>
+            )}
+            <button onClick={() => setSwappingExerciseIdx(swappingExerciseIdx === exIdx ? null : exIdx)}
+              style={{ background: swappingExerciseIdx === exIdx ? "#0ea5e915" : "none", border: `1px solid ${swappingExerciseIdx === exIdx ? "#0ea5e9" : "#0ea5e925"}`, borderRadius: 4, color: "#0ea5e9", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: swappingExerciseIdx === exIdx ? 1 : 0.6 }}>
+              <SwapIcon />
+            </button>
+            <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
+              style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === 0 ? T.textFaint : T.textMuted, cursor: exIdx === 0 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === 0 ? 0.3 : 0.6 }}>
+              <ArrowUpSmall />
+            </button>
+            <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === activeWorkout.exercises.length - 1}
+              style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === activeWorkout.exercises.length - 1 ? T.textFaint : T.textMuted, cursor: exIdx === activeWorkout.exercises.length - 1 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === activeWorkout.exercises.length - 1 ? 0.3 : 0.6 }}>
+              <ArrowDownSmall />
+            </button>
+            <button onClick={() => removeExercise(exIdx)}
+              style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
+              <XIcon />
+            </button>
+          </div>
+          {exIdx === 0 && !dismissedHints.swap && (
+            <div style={{ margin: "6px 0 2px", padding: "6px 10px", background: "#0ea5e908", borderRadius: 6, border: "1px solid #0ea5e920", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <span style={{ fontSize: 10, color: "#0ea5e9" }}>
+                <strong>Tip:</strong> Machine taken? Tap <SwapIcon /> to swap for an alternative.
+              </span>
+              <button onClick={() => dismissHint("swap")} style={{ background: "none", border: "none", color: "#0ea5e950", cursor: "pointer", padding: 2, flexShrink: 0, fontSize: 9 }}>✕</button>
+            </div>
+          )}
+          {isNewPR && (
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: "#f59e0b12", borderRadius: 6, border: "1px solid #f59e0b33" }}>
+              <span style={{ color: "#f59e0b" }}><FlameIcon /></span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b", letterSpacing: 0.5 }}>NEW PR!</span>
+            </div>
+          )}
+        </div>
+
+        {/* ── SWAP PANEL ── */}
+        {swappingExerciseIdx === exIdx && (() => {
+          const currentMuscle = exInfo?.muscle || "";
+          const currentCategory = ex.category;
+          const currentIds = activeWorkout.exercises.map(e => e.exerciseId);
+          // Find alternatives: same muscle first, then same category
+          const sameMuscle = allExercises.filter(e =>
+            e.id !== ex.exerciseId && !currentIds.includes(e.id) &&
+            e.muscle === currentMuscle && !e.isCardio
+          );
+          const sameCategory = allExercises.filter(e =>
+            e.id !== ex.exerciseId && !currentIds.includes(e.id) &&
+            e.category === currentCategory && e.muscle !== currentMuscle && !e.isCardio
+          );
+          const alternatives = [...sameMuscle, ...sameCategory];
+          return (
+            <div style={{ padding: "10px 16px", background: dark ? "#0ea5e908" : "#0ea5e906", borderBottom: `1px solid ${T.borderSubtle}` }}>
+              <div style={{ fontSize: 8, color: "#0ea5e9", letterSpacing: 1.5, fontWeight: 700, marginBottom: 6 }}>
+                <SwapIcon /> SWAP — SAME MUSCLE ALTERNATIVES
+              </div>
+              {alternatives.length === 0 && (
+                <div style={{ fontSize: 10, color: T.textFaint, padding: "8px 0" }}>No alternatives found for {currentMuscle}</div>
+              )}
+              {sameMuscle.length > 0 && (
+                <div style={{ marginBottom: sameCategory.length > 0 ? 8 : 0 }}>
+                  <div style={{ fontSize: 7, color: T.textFaint, letterSpacing: 1, marginBottom: 4 }}>SAME MUSCLE ({currentMuscle})</div>
+                  {sameMuscle.map(alt => {
+                    const lastW = getLastWorkingWeight(alt.id, data.workoutLogs);
+                    return (
+                      <button key={alt.id} onClick={() => swapExercise(exIdx, alt.id)}
+                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "8px 10px", marginBottom: 3, background: dark ? "#1a1a2e" : "#fff", border: `1px solid ${T.borderSubtle}`, borderRadius: 6, cursor: "pointer", textAlign: "left" }}>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: T.textStrong }}>{alt.name}</div>
+                          <div style={{ fontSize: 8, color: T.textFaint }}>{alt.muscle}</div>
+                        </div>
+                        {lastW > 0 && <span style={{ fontSize: 9, color: T.textMuted }}>Last: {lastW} lb</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {sameCategory.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 7, color: T.textFaint, letterSpacing: 1, marginBottom: 4 }}>SAME CATEGORY ({CATEGORY_COLORS[currentCategory]?.label})</div>
+                  {sameCategory.map(alt => {
+                    const lastW = getLastWorkingWeight(alt.id, data.workoutLogs);
+                    return (
+                      <button key={alt.id} onClick={() => swapExercise(exIdx, alt.id)}
+                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "8px 10px", marginBottom: 3, background: dark ? "#1a1a2e" : "#fff", border: `1px solid ${T.borderSubtle}`, borderRadius: 6, cursor: "pointer", textAlign: "left" }}>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: T.textStrong }}>{alt.name}</div>
+                          <div style={{ fontSize: 8, color: T.textFaint }}>{alt.muscle}</div>
+                        </div>
+                        {lastW > 0 && <span style={{ fontSize: 9, color: T.textMuted }}>Last: {lastW} lb</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <button onClick={() => setSwappingExerciseIdx(null)}
+                style={{ ...S.btnOutline("#666"), fontSize: 9, padding: "6px 12px", marginTop: 6, width: "100%" }}>CANCEL</button>
+            </div>
+          );
+        })()}
+
+        {/* ── WARMUP SECTION ── */}
+        <div style={{ padding: "12px 16px", background: T.bgInset, borderBottom: `1px solid ${T.borderSubtle}` }}>
+          <div style={{ ...S.sectionLabel, color: "#f59e0b" }}>
+            <span style={{ fontSize: 11 }}>~</span> WARMUP
+          </div>
+
+          {/* Warmup weight */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <input type="number" value={ex.warmupWeight || ""} onChange={e => updateField(exIdx, "warmupWeight", parseFloat(e.target.value) || 0)}
+              style={{ ...S.input, width: 80, textAlign: "center", fontSize: 15, fontWeight: 700, borderColor: "#f59e0b33", padding: "6px 10px" }} placeholder="0" />
+            <span style={{ fontSize: 11, color: T.textMuted }}>lb</span>
+            <span style={{ fontSize: 9, color: T.textFaint, marginLeft: "auto" }}>lighter weight, groove the pattern</span>
+          </div>
+
+          {/* Warmup sets */}
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            {ex.warmupSets.map((set, setIdx) => (
+              <div key={setIdx} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                <div style={{ fontSize: 8, color: T.textMuted, letterSpacing: 0.5 }}>W{setIdx + 1}</div>
+                <button onClick={() => toggleSet(exIdx, "warmup", setIdx)} style={S.setBtn(set.completed, true)}>
+                  {set.completed ? <CheckIcon /> : "—"}
+                </button>
+                {set.completed && (
+                  <input type="number" value={set.reps || ""} onChange={e => updateReps(exIdx, "warmup", setIdx, e.target.value)}
+                    style={{ ...S.input, width: 50, padding: "2px 4px", textAlign: "center", fontSize: 10, borderColor: "#f59e0b22" }} placeholder="10" />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── WORKING SETS SECTION ── */}
+        <div style={{ padding: "12px 16px" }}>
+          <div style={{ ...S.sectionLabel, color: "#22c55e" }}>
+            <span style={{ color: "#22c55e" }}><FlameIcon /></span> WORKING SETS
+          </div>
+
+          {/* Default working weight */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <input type="number" value={ex.workingWeight || ""} onChange={e => updateField(exIdx, "workingWeight", parseFloat(e.target.value) || 0)}
+              style={{ ...S.input, width: 80, textAlign: "center", fontSize: 15, fontWeight: 700, borderColor: "#22c55e33", padding: "6px 10px" }} placeholder="0" />
+            <span style={{ fontSize: 11, color: T.textMuted }}>lb</span>
+            <span style={{ fontSize: 9, color: T.textFaint, marginLeft: "auto" }}>starting weight</span>
+          </div>
+
+          {/* Working sets with per-set weight */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {ex.workingSets.map((set, setIdx) => {
+              const setWeight = set.weight != null ? set.weight : ex.workingWeight;
+              const weightChanged = set.weight != null && set.weight !== ex.workingWeight;
+              return (
+                <div key={setIdx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: setIdx < ex.workingSets.length - 1 ? `1px solid ${T.borderSubtle}` : "none" }}>
+                  <button onClick={() => toggleSet(exIdx, "working", setIdx)} style={S.setBtn(set.completed, false)}>
+                    {set.completed ? <CheckIcon /> : <span style={{ fontSize: 10 }}>S{setIdx + 1}</span>}
+                  </button>
+                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <input type="number" value={set.weight != null ? set.weight : (ex.workingWeight || "")}
+                        onChange={e => updateSetWeight(exIdx, setIdx, e.target.value)}
+                        style={{ ...S.input, width: 70, textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px",
+                          borderColor: weightChanged ? "#f59e0b44" : "#22c55e22",
+                          color: weightChanged ? "#f59e0b" : T.inputText }} placeholder="0" />
+                      <span style={{ fontSize: 9, color: T.textMuted }}>lb</span>
+                    </div>
+                    <span style={{ fontSize: 9, color: T.textFaint }}>×</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <input type="number" value={set.reps || ""} onChange={e => updateReps(exIdx, "working", setIdx, e.target.value)}
+                        style={{ ...S.input, width: 50, textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px", borderColor: "#22c55e22" }} placeholder="12" />
+                      <span style={{ fontSize: 9, color: T.textMuted }}>reps</span>
+                    </div>
+                    {weightChanged && <span style={{ fontSize: 8, color: "#f59e0b", letterSpacing: 0.5 }}>BUMPED</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Add/remove set buttons */}
+          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+            <button onClick={() => addSet(exIdx, "working")} style={{ ...S.btnOutline("#22c55e"), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><PlusIcon /> SET</button>
+            {ex.workingSets.length > 1 && (
+              <button onClick={() => removeSet(exIdx, "working")} style={{ ...S.btnOutline("#333"), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><MinusIcon /> SET</button>
+            )}
+          </div>
+        </div>
+
+        {/* ── NOTES ── */}
+        <div style={{ padding: "10px 16px 14px", borderTop: `1px solid ${T.borderSubtle}` }}>
+          <div style={{ ...S.sectionLabel, color: T.textMuted, marginBottom: 6 }}>
+            <EditIcon /> NOTES
+          </div>
+          <textarea
+            value={ex.notes || ""}
+            onChange={e => updateField(exIdx, "notes", e.target.value)}
+            placeholder="Form cues, how it felt, weight adjustments..."
+            style={{
+              ...S.input,
+              minHeight: 50,
+              resize: "vertical",
+              fontSize: 12,
+              lineHeight: 1.5,
+              padding: "8px 10px",
+              borderColor: T.borderInput,
+            }}
+          />
+        </div>
+      </div>
+    );
+    };
+
         {activeWorkout.exercises.map((ex, exIdx) => {
           const exInfo = allExercises.find(e => e.id === ex.exerciseId);
           const catInfo = CATEGORY_COLORS[exInfo?.category] || { accent: "#888" };
 
           // ── CARDIO EXERCISE ──
-          if (ex.isCardio) {
-            return (
-              <div key={exIdx} style={{ ...S.card, borderColor: ex.completed ? "#22c55e22" : T.border, position: "relative", overflow: "hidden", padding: 0 }}>
-                {ex.completed && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "#22c55e" }} />}
-
-                <div style={{ padding: "14px 16px 10px", borderBottom: `1px solid ${T.borderSubtle}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div>
-                      <div style={S.tag(catInfo.accent)}>{CATEGORY_COLORS[ex.category]?.label}</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: ex.completed ? "#22c55e" : T.textStrong, marginTop: 6 }}>{ex.name}</div>
-                    </div>
-                    <button onClick={() => setSwappingExerciseIdx(swappingExerciseIdx === exIdx ? null : exIdx)}
-                      style={{ background: swappingExerciseIdx === exIdx ? "#0ea5e915" : "none", border: `1px solid ${swappingExerciseIdx === exIdx ? "#0ea5e9" : "#0ea5e925"}`, borderRadius: 4, color: "#0ea5e9", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: swappingExerciseIdx === exIdx ? 1 : 0.6 }}>
-                      <SwapIcon />
-                    </button>
-                      <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
-                        style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === 0 ? T.textFaint : T.textMuted, cursor: exIdx === 0 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === 0 ? 0.3 : 0.6 }}>
-                        <ArrowUpSmall />
-                      </button>
-                      <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === activeWorkout.exercises.length - 1}
-                        style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === activeWorkout.exercises.length - 1 ? T.textFaint : T.textMuted, cursor: exIdx === activeWorkout.exercises.length - 1 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === activeWorkout.exercises.length - 1 ? 0.3 : 0.6 }}>
-                        <ArrowDownSmall />
-                      </button>
-                    <button onClick={() => removeExercise(exIdx)}
-                      style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
-                      <XIcon />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Cardio swap panel */}
-                {swappingExerciseIdx === exIdx && (() => {
-                  const currentIds = activeWorkout.exercises.map(e => e.exerciseId);
-                  const cardioAlts = allExercises.filter(e =>
-                    e.id !== ex.exerciseId && !currentIds.includes(e.id) && (e.isCardio || e.category === "cardio")
-                  );
-                  return (
-                    <div style={{ padding: "10px 16px", background: dark ? "#0ea5e908" : "#0ea5e906", borderBottom: `1px solid ${T.borderSubtle}` }}>
-                      <div style={{ fontSize: 8, color: "#0ea5e9", letterSpacing: 1.5, fontWeight: 700, marginBottom: 6 }}>SWAP — OTHER CARDIO</div>
-                      {cardioAlts.length === 0 && (
-                        <div style={{ fontSize: 10, color: T.textFaint, padding: "8px 0" }}>No other cardio exercises available</div>
-                      )}
-                      {cardioAlts.map(alt => (
-                        <button key={alt.id} onClick={() => swapExercise(exIdx, alt.id)}
-                          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "8px 10px", marginBottom: 3, background: dark ? "#1a1a2e" : "#fff", border: `1px solid ${T.borderSubtle}`, borderRadius: 6, cursor: "pointer", textAlign: "left" }}>
-                          <div>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: T.textStrong }}>{alt.name}</div>
-                            <div style={{ fontSize: 8, color: T.textFaint }}>{alt.muscle}</div>
-                          </div>
-                        </button>
-                      ))}
-                      <button onClick={() => setSwappingExerciseIdx(null)}
-                        style={{ ...S.btnOutline("#666"), fontSize: 9, padding: "6px 12px", marginTop: 6, width: "100%" }}>CANCEL</button>
-                    </div>
-                  );
-                })()}
-
-                <div style={{ padding: "12px 16px" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                    <div>
-                      <div style={{ fontSize: 8, color: T.textFaint, letterSpacing: 1, marginBottom: 3 }}>DURATION (min)</div>
-                      <input type="number" style={{ ...S.input, fontSize: 14, textAlign: "center", fontWeight: 700 }}
-                        value={ex.duration || ""} placeholder="30"
-                        onChange={e => updateField(exIdx, "duration", Number(e.target.value) || 0)} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 8, color: T.textFaint, letterSpacing: 1, marginBottom: 3 }}>DISTANCE (mi)</div>
-                      <input type="number" step="0.1" style={{ ...S.input, fontSize: 14, textAlign: "center", fontWeight: 700 }}
-                        value={ex.distance || ""} placeholder="0.0"
-                        onChange={e => updateField(exIdx, "distance", Number(e.target.value) || 0)} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 8, color: T.textFaint, letterSpacing: 1, marginBottom: 3 }}>CALORIES</div>
-                      <input type="number" style={{ ...S.input, fontSize: 14, textAlign: "center", fontWeight: 700 }}
-                        value={ex.calories || ""} placeholder="0"
-                        onChange={e => updateField(exIdx, "calories", Number(e.target.value) || 0)} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 8, color: T.textFaint, letterSpacing: 1, marginBottom: 3 }}>AVG HR (bpm)</div>
-                      <input type="number" style={{ ...S.input, fontSize: 14, textAlign: "center", fontWeight: 700 }}
-                        value={ex.avgHeartRate || ""} placeholder="0"
-                        onChange={e => updateField(exIdx, "avgHeartRate", Number(e.target.value) || 0)} />
-                    </div>
-                  </div>
-
-                  {/* Notes */}
-                  <textarea value={ex.notes || ""} onChange={e => updateField(exIdx, "notes", e.target.value)}
-                    placeholder="Class name, instructor, how it felt..."
-                    style={{ ...S.input, minHeight: 40, resize: "vertical", fontSize: 11, lineHeight: 1.5, border: `1px solid ${T.borderInput}` }} />
-
-                  {/* Complete toggle */}
-                  <button onClick={() => updateField(exIdx, "completed", !ex.completed)}
-                    style={{ ...ex.completed ? S.btn("#22c55e") : S.btnOutline("#22c55e"), marginTop: 10, padding: "10px 14px" }}>
-                    <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                      <CheckIcon /> {ex.completed ? "COMPLETED ✓" : "MARK COMPLETE"}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            );
-          }
+          if (ex.isCardio) return renderCardioCard(ex, exIdx, catInfo);
 
           // ── CARRY EXERCISE ──
-          if (ex.isCarry) {
-            const allCarryDone = (ex.sets || []).every(s => s.completed);
-            const carryColor = "#ec4899";
-            const updateCarrySet = (setIdx, field, value) => {
-              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
-              const exCopy = { ...updated.exercises[exIdx] };
-              exCopy.sets = [...exCopy.sets];
-              exCopy.sets[setIdx] = { ...exCopy.sets[setIdx], [field]: value };
-              updated.exercises[exIdx] = exCopy;
-              setActiveWorkout(updated);
-            };
-            const toggleCarrySet = (setIdx) => {
-              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
-              const exCopy = { ...updated.exercises[exIdx] };
-              exCopy.sets = [...exCopy.sets];
-              exCopy.sets[setIdx] = { ...exCopy.sets[setIdx], completed: !exCopy.sets[setIdx].completed };
-              updated.exercises[exIdx] = exCopy;
-              setActiveWorkout(updated);
-            };
-            const addCarrySet = () => {
-              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
-              const exCopy = { ...updated.exercises[exIdx] };
-              const lastSet = exCopy.sets[exCopy.sets.length - 1] || {};
-              exCopy.sets = [...exCopy.sets, { weight: lastSet.weight || 0, laps: lastSet.laps || 1, distance: "", completed: false }];
-              updated.exercises[exIdx] = exCopy;
-              setActiveWorkout(updated);
-            };
-            const removeCarrySet = () => {
-              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
-              const exCopy = { ...updated.exercises[exIdx] };
-              if (exCopy.sets.length > 1) {
-                exCopy.sets = exCopy.sets.slice(0, -1);
-                updated.exercises[exIdx] = exCopy;
-                setActiveWorkout(updated);
-              }
-            };
-            return (
-              <div key={exIdx} style={{ ...S.card, borderColor: allCarryDone ? carryColor + "33" : T.border, position: "relative", overflow: "hidden", padding: 0 }}>
-                {allCarryDone && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: carryColor }} />}
-                {/* Header */}
-                <div style={{ padding: "14px 16px 10px", borderBottom: `1px solid ${T.borderSubtle}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div>
-                      <div style={S.tag(carryColor)}>Carry</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: allCarryDone ? carryColor : T.textStrong, marginTop: 6 }}>{ex.name}</div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      {exInfo?.videoUrl && (
-                        <a href={getVideoUrl(exInfo)} target="_blank" rel="noopener noreferrer"
-                          style={{ color: carryColor, display: "flex", alignItems: "center", gap: 4, fontSize: 9, textDecoration: "none", padding: "4px 8px", borderRadius: 4, border: `1px solid ${carryColor}25`, letterSpacing: 0.5 }}>
-                          <PlayIcon /> Form
-                        </a>
-                      )}
-                      <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
-                        style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === 0 ? T.textFaint : T.textMuted, cursor: exIdx === 0 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === 0 ? 0.3 : 0.6 }}>
-                        <ArrowUpSmall />
-                      </button>
-                      <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === activeWorkout.exercises.length - 1}
-                        style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === activeWorkout.exercises.length - 1 ? T.textFaint : T.textMuted, cursor: exIdx === activeWorkout.exercises.length - 1 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === activeWorkout.exercises.length - 1 ? 0.3 : 0.6 }}>
-                        <ArrowDownSmall />
-                      </button>
-                      <button onClick={() => removeExercise(exIdx)}
-                        style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
-                        <XIcon />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                {/* Sets */}
-                <div style={{ padding: "12px 16px" }}>
-                  <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                    <div style={{ width: 32, fontSize: 7, color: T.textFaint, letterSpacing: 0.5, textAlign: "center", paddingTop: 2 }}></div>
-                    <div style={{ flex: "0 0 68px", fontSize: 7, color: T.textFaint, letterSpacing: 0.5, textAlign: "center" }}>WEIGHT (lb)</div>
-                    <div style={{ flex: "0 0 54px", fontSize: 7, color: T.textFaint, letterSpacing: 0.5, textAlign: "center" }}>LAPS</div>
-                    <div style={{ flex: 1, fontSize: 7, color: T.textFaint, letterSpacing: 0.5 }}>DISTANCE (opt)</div>
-                  </div>
-                  {(ex.sets || []).map((set, setIdx) => (
-                    <div key={setIdx} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6, paddingBottom: 6, borderBottom: setIdx < ex.sets.length - 1 ? `1px solid ${T.borderSubtle}` : "none" }}>
-                      <button onClick={() => toggleCarrySet(setIdx)} style={{ ...S.setBtn(set.completed, false), width: 32, flexShrink: 0 }}>
-                        {set.completed ? <CheckIcon /> : <span style={{ fontSize: 10 }}>S{setIdx + 1}</span>}
-                      </button>
-                      <input type="number" value={set.weight || ""} placeholder="0"
-                        onChange={e => updateCarrySet(setIdx, "weight", parseFloat(e.target.value) || 0)}
-                        style={{ ...S.input, flex: "0 0 68px", textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px", borderColor: carryColor + "33" }} />
-                      <input type="number" value={set.laps || ""} placeholder="1"
-                        onChange={e => updateCarrySet(setIdx, "laps", parseInt(e.target.value) || 0)}
-                        style={{ ...S.input, flex: "0 0 54px", textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px", borderColor: carryColor + "22" }} />
-                      <input type="text" value={set.distance || ""} placeholder="e.g. 40 ft"
-                        onChange={e => updateCarrySet(setIdx, "distance", e.target.value)}
-                        style={{ ...S.input, flex: 1, fontSize: 11, padding: "4px 6px", borderColor: T.borderInput }} />
-                    </div>
-                  ))}
-                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                    <button onClick={addCarrySet} style={{ ...S.btnOutline(carryColor), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><PlusIcon /> SET</button>
-                    {ex.sets.length > 1 && (
-                      <button onClick={removeCarrySet} style={{ ...S.btnOutline("#333"), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><MinusIcon /> SET</button>
-                    )}
-                  </div>
-                </div>
-                {/* Notes */}
-                <div style={{ padding: "10px 16px 14px", borderTop: `1px solid ${T.borderSubtle}` }}>
-                  <textarea value={ex.notes || ""} onChange={e => updateField(exIdx, "notes", e.target.value)}
-                    placeholder="How far, how heavy, how it felt..."
-                    style={{ ...S.input, minHeight: 44, resize: "vertical", fontSize: 11, lineHeight: 1.5, padding: "8px 10px", borderColor: T.borderInput }} />
-                </div>
-              </div>
-            );
-          }
+          if (ex.isCarry) return renderCarryCard(ex, exIdx);
 
           // ── TABATA EXERCISE ──
-          if (ex.isTabata) {
-            const tabataColor = "#a855f7";
-            const completedRounds = (ex.rounds || []).filter(r => r.completed).length;
-            const allTabataDone = completedRounds === (ex.rounds || []).length && (ex.rounds || []).length > 0;
-            const toggleRound = (roundIdx) => {
-              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
-              const exCopy = { ...updated.exercises[exIdx] };
-              exCopy.rounds = [...exCopy.rounds];
-              exCopy.rounds[roundIdx] = { ...exCopy.rounds[roundIdx], completed: !exCopy.rounds[roundIdx].completed };
-              updated.exercises[exIdx] = exCopy;
-              setActiveWorkout(updated);
-            };
-            const addRound = () => {
-              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
-              const exCopy = { ...updated.exercises[exIdx] };
-              exCopy.rounds = [...exCopy.rounds, { completed: false }];
-              updated.exercises[exIdx] = exCopy;
-              setActiveWorkout(updated);
-            };
-            const removeRound = () => {
-              const updated = { ...activeWorkout, exercises: [...activeWorkout.exercises] };
-              const exCopy = { ...updated.exercises[exIdx] };
-              if (exCopy.rounds.length > 1) {
-                exCopy.rounds = exCopy.rounds.slice(0, -1);
-                updated.exercises[exIdx] = exCopy;
-                setActiveWorkout(updated);
-              }
-            };
-            return (
-              <div key={exIdx} style={{ ...S.card, borderColor: allTabataDone ? tabataColor + "33" : T.border, position: "relative", overflow: "hidden", padding: 0 }}>
-                {allTabataDone && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: tabataColor }} />}
-                {/* Header */}
-                <div style={{ padding: "14px 16px 10px", borderBottom: `1px solid ${T.borderSubtle}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div>
-                      <div style={S.tag(tabataColor)}>Tabata</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: allTabataDone ? tabataColor : T.textStrong, marginTop: 6 }}>{ex.name}</div>
-                      <div style={{ fontSize: 9, color: T.textFaint, marginTop: 2 }}>20s on · 10s off · per round</div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
-                        style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === 0 ? T.textFaint : T.textMuted, cursor: exIdx === 0 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === 0 ? 0.3 : 0.6 }}>
-                        <ArrowUpSmall />
-                      </button>
-                      <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === activeWorkout.exercises.length - 1}
-                        style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === activeWorkout.exercises.length - 1 ? T.textFaint : T.textMuted, cursor: exIdx === activeWorkout.exercises.length - 1 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === activeWorkout.exercises.length - 1 ? 0.3 : 0.6 }}>
-                        <ArrowDownSmall />
-                      </button>
-                      <button onClick={() => removeExercise(exIdx)}
-                        style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
-                        <XIcon />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                {/* Rounds */}
-                <div style={{ padding: "12px 16px" }}>
-                  <div style={{ fontSize: 8, color: tabataColor, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>
-                    ROUNDS — {completedRounds} / {(ex.rounds || []).length} DONE
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-                    {(ex.rounds || []).map((round, roundIdx) => (
-                      <div key={roundIdx} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                        <div style={{ fontSize: 8, color: T.textFaint }}>R{roundIdx + 1}</div>
-                        <button onClick={() => toggleRound(roundIdx)} style={S.setBtn(round.completed, false)}>
-                          {round.completed ? <CheckIcon /> : <span style={{ fontSize: 10 }}>{roundIdx + 1}</span>}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={addRound} style={{ ...S.btnOutline(tabataColor), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><PlusIcon /> ROUND</button>
-                    {(ex.rounds || []).length > 1 && (
-                      <button onClick={removeRound} style={{ ...S.btnOutline("#333"), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><MinusIcon /> ROUND</button>
-                    )}
-                  </div>
-                </div>
-                {/* Notes */}
-                <div style={{ padding: "10px 16px 14px", borderTop: `1px solid ${T.borderSubtle}` }}>
-                  <textarea value={ex.notes || ""} onChange={e => updateField(exIdx, "notes", e.target.value)}
-                    placeholder="Movements used, how it felt..."
-                    style={{ ...S.input, minHeight: 44, resize: "vertical", fontSize: 11, lineHeight: 1.5, padding: "8px 10px", borderColor: T.borderInput }} />
-                </div>
-              </div>
-            );
-          }
+          if (ex.isTabata) return renderTabataCard(ex, exIdx);
 
           // ── STRENGTH EXERCISE ──
-          const allWarmupDone = (ex.warmupSets || []).every(s => s.completed);
-          const allWorkingDone = (ex.workingSets || []).every(s => s.completed);
-          const allDone = allWarmupDone && allWorkingDone;
-          const maxSetWeight = Math.max(ex.workingWeight || 0, ...ex.workingSets.map(s => s.weight || 0));
-          const isNewPR = maxSetWeight > 0 && ex.pr && maxSetWeight > ex.pr && allWorkingDone;
-
-          return (
-            <div key={exIdx} style={{ ...S.card, borderColor: allDone ? "#22c55e22" : T.border, position: "relative", overflow: "hidden", padding: 0 }}>
-              {allDone && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "#22c55e" }} />}
-
-              {/* Exercise header */}
-              <div style={{ padding: "14px 16px 10px", borderBottom: `1px solid ${T.borderSubtle}` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <div style={S.tag(catInfo.accent)}>{CATEGORY_COLORS[ex.category]?.label}</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: allDone ? "#22c55e" : T.textStrong, marginTop: 6 }}>{ex.name}</div>
-                    <div style={{ display: "flex", gap: 10, marginTop: 4, alignItems: "center", flexWrap: "wrap" }}>
-                      {ex.pr > 0 && <span style={{ fontSize: 9, color: "#f59e0b", letterSpacing: 0.5 }}>PR: {ex.pr} lb</span>}
-                      {ex.suggestion && <span style={{ fontSize: 9, color: T.textMuted }}>Target: {ex.suggestion} lb</span>}
-                      {ex.lastWorking > 0 && <span style={{ fontSize: 9, color: T.textFaint }}>Last: {ex.lastWorking} lb</span>}
-                    </div>
-                  </div>
-                  {exInfo?.videoUrl && (
-                    <a href={getVideoUrl(exInfo)} target="_blank" rel="noopener noreferrer"
-                      style={{ color: catInfo.accent, display: "flex", alignItems: "center", gap: 4, fontSize: 9, textDecoration: "none", padding: "4px 8px", borderRadius: 4, border: `1px solid ${catInfo.accent}25`, letterSpacing: 0.5, flexShrink: 0 }}>
-                      <PlayIcon /> Form
-                    </a>
-                  )}
-                  <button onClick={() => setSwappingExerciseIdx(swappingExerciseIdx === exIdx ? null : exIdx)}
-                    style={{ background: swappingExerciseIdx === exIdx ? "#0ea5e915" : "none", border: `1px solid ${swappingExerciseIdx === exIdx ? "#0ea5e9" : "#0ea5e925"}`, borderRadius: 4, color: "#0ea5e9", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: swappingExerciseIdx === exIdx ? 1 : 0.6 }}>
-                    <SwapIcon />
-                  </button>
-                  <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
-                    style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === 0 ? T.textFaint : T.textMuted, cursor: exIdx === 0 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === 0 ? 0.3 : 0.6 }}>
-                    <ArrowUpSmall />
-                  </button>
-                  <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === activeWorkout.exercises.length - 1}
-                    style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === activeWorkout.exercises.length - 1 ? T.textFaint : T.textMuted, cursor: exIdx === activeWorkout.exercises.length - 1 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === activeWorkout.exercises.length - 1 ? 0.3 : 0.6 }}>
-                    <ArrowDownSmall />
-                  </button>
-                  <button onClick={() => removeExercise(exIdx)}
-                    style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
-                    <XIcon />
-                  </button>
-                </div>
-                {exIdx === 0 && !dismissedHints.swap && (
-                  <div style={{ margin: "6px 0 2px", padding: "6px 10px", background: "#0ea5e908", borderRadius: 6, border: "1px solid #0ea5e920", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ fontSize: 10, color: "#0ea5e9" }}>
-                      <strong>Tip:</strong> Machine taken? Tap <SwapIcon /> to swap for an alternative.
-                    </span>
-                    <button onClick={() => dismissHint("swap")} style={{ background: "none", border: "none", color: "#0ea5e950", cursor: "pointer", padding: 2, flexShrink: 0, fontSize: 9 }}>✕</button>
-                  </div>
-                )}
-                {isNewPR && (
-                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: "#f59e0b12", borderRadius: 6, border: "1px solid #f59e0b33" }}>
-                    <span style={{ color: "#f59e0b" }}><FlameIcon /></span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b", letterSpacing: 0.5 }}>NEW PR!</span>
-                  </div>
-                )}
-              </div>
-
-              {/* ── SWAP PANEL ── */}
-              {swappingExerciseIdx === exIdx && (() => {
-                const currentMuscle = exInfo?.muscle || "";
-                const currentCategory = ex.category;
-                const currentIds = activeWorkout.exercises.map(e => e.exerciseId);
-                // Find alternatives: same muscle first, then same category
-                const sameMuscle = allExercises.filter(e =>
-                  e.id !== ex.exerciseId && !currentIds.includes(e.id) &&
-                  e.muscle === currentMuscle && !e.isCardio
-                );
-                const sameCategory = allExercises.filter(e =>
-                  e.id !== ex.exerciseId && !currentIds.includes(e.id) &&
-                  e.category === currentCategory && e.muscle !== currentMuscle && !e.isCardio
-                );
-                const alternatives = [...sameMuscle, ...sameCategory];
-                return (
-                  <div style={{ padding: "10px 16px", background: dark ? "#0ea5e908" : "#0ea5e906", borderBottom: `1px solid ${T.borderSubtle}` }}>
-                    <div style={{ fontSize: 8, color: "#0ea5e9", letterSpacing: 1.5, fontWeight: 700, marginBottom: 6 }}>
-                      <SwapIcon /> SWAP — SAME MUSCLE ALTERNATIVES
-                    </div>
-                    {alternatives.length === 0 && (
-                      <div style={{ fontSize: 10, color: T.textFaint, padding: "8px 0" }}>No alternatives found for {currentMuscle}</div>
-                    )}
-                    {sameMuscle.length > 0 && (
-                      <div style={{ marginBottom: sameCategory.length > 0 ? 8 : 0 }}>
-                        <div style={{ fontSize: 7, color: T.textFaint, letterSpacing: 1, marginBottom: 4 }}>SAME MUSCLE ({currentMuscle})</div>
-                        {sameMuscle.map(alt => {
-                          const lastW = getLastWorkingWeight(alt.id, data.workoutLogs);
-                          return (
-                            <button key={alt.id} onClick={() => swapExercise(exIdx, alt.id)}
-                              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "8px 10px", marginBottom: 3, background: dark ? "#1a1a2e" : "#fff", border: `1px solid ${T.borderSubtle}`, borderRadius: 6, cursor: "pointer", textAlign: "left" }}>
-                              <div>
-                                <div style={{ fontSize: 11, fontWeight: 600, color: T.textStrong }}>{alt.name}</div>
-                                <div style={{ fontSize: 8, color: T.textFaint }}>{alt.muscle}</div>
-                              </div>
-                              {lastW > 0 && <span style={{ fontSize: 9, color: T.textMuted }}>Last: {lastW} lb</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {sameCategory.length > 0 && (
-                      <div>
-                        <div style={{ fontSize: 7, color: T.textFaint, letterSpacing: 1, marginBottom: 4 }}>SAME CATEGORY ({CATEGORY_COLORS[currentCategory]?.label})</div>
-                        {sameCategory.map(alt => {
-                          const lastW = getLastWorkingWeight(alt.id, data.workoutLogs);
-                          return (
-                            <button key={alt.id} onClick={() => swapExercise(exIdx, alt.id)}
-                              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "8px 10px", marginBottom: 3, background: dark ? "#1a1a2e" : "#fff", border: `1px solid ${T.borderSubtle}`, borderRadius: 6, cursor: "pointer", textAlign: "left" }}>
-                              <div>
-                                <div style={{ fontSize: 11, fontWeight: 600, color: T.textStrong }}>{alt.name}</div>
-                                <div style={{ fontSize: 8, color: T.textFaint }}>{alt.muscle}</div>
-                              </div>
-                              {lastW > 0 && <span style={{ fontSize: 9, color: T.textMuted }}>Last: {lastW} lb</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <button onClick={() => setSwappingExerciseIdx(null)}
-                      style={{ ...S.btnOutline("#666"), fontSize: 9, padding: "6px 12px", marginTop: 6, width: "100%" }}>CANCEL</button>
-                  </div>
-                );
-              })()}
-
-              {/* ── WARMUP SECTION ── */}
-              <div style={{ padding: "12px 16px", background: T.bgInset, borderBottom: `1px solid ${T.borderSubtle}` }}>
-                <div style={{ ...S.sectionLabel, color: "#f59e0b" }}>
-                  <span style={{ fontSize: 11 }}>~</span> WARMUP
-                </div>
-
-                {/* Warmup weight */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <input type="number" value={ex.warmupWeight || ""} onChange={e => updateField(exIdx, "warmupWeight", parseFloat(e.target.value) || 0)}
-                    style={{ ...S.input, width: 80, textAlign: "center", fontSize: 15, fontWeight: 700, borderColor: "#f59e0b33", padding: "6px 10px" }} placeholder="0" />
-                  <span style={{ fontSize: 11, color: T.textMuted }}>lb</span>
-                  <span style={{ fontSize: 9, color: T.textFaint, marginLeft: "auto" }}>lighter weight, groove the pattern</span>
-                </div>
-
-                {/* Warmup sets */}
-                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                  {ex.warmupSets.map((set, setIdx) => (
-                    <div key={setIdx} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                      <div style={{ fontSize: 8, color: T.textMuted, letterSpacing: 0.5 }}>W{setIdx + 1}</div>
-                      <button onClick={() => toggleSet(exIdx, "warmup", setIdx)} style={S.setBtn(set.completed, true)}>
-                        {set.completed ? <CheckIcon /> : "—"}
-                      </button>
-                      {set.completed && (
-                        <input type="number" value={set.reps || ""} onChange={e => updateReps(exIdx, "warmup", setIdx, e.target.value)}
-                          style={{ ...S.input, width: 50, padding: "2px 4px", textAlign: "center", fontSize: 10, borderColor: "#f59e0b22" }} placeholder="10" />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* ── WORKING SETS SECTION ── */}
-              <div style={{ padding: "12px 16px" }}>
-                <div style={{ ...S.sectionLabel, color: "#22c55e" }}>
-                  <span style={{ color: "#22c55e" }}><FlameIcon /></span> WORKING SETS
-                </div>
-
-                {/* Default working weight */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <input type="number" value={ex.workingWeight || ""} onChange={e => updateField(exIdx, "workingWeight", parseFloat(e.target.value) || 0)}
-                    style={{ ...S.input, width: 80, textAlign: "center", fontSize: 15, fontWeight: 700, borderColor: "#22c55e33", padding: "6px 10px" }} placeholder="0" />
-                  <span style={{ fontSize: 11, color: T.textMuted }}>lb</span>
-                  <span style={{ fontSize: 9, color: T.textFaint, marginLeft: "auto" }}>starting weight</span>
-                </div>
-
-                {/* Working sets with per-set weight */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {ex.workingSets.map((set, setIdx) => {
-                    const setWeight = set.weight != null ? set.weight : ex.workingWeight;
-                    const weightChanged = set.weight != null && set.weight !== ex.workingWeight;
-                    return (
-                      <div key={setIdx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: setIdx < ex.workingSets.length - 1 ? `1px solid ${T.borderSubtle}` : "none" }}>
-                        <button onClick={() => toggleSet(exIdx, "working", setIdx)} style={S.setBtn(set.completed, false)}>
-                          {set.completed ? <CheckIcon /> : <span style={{ fontSize: 10 }}>S{setIdx + 1}</span>}
-                        </button>
-                        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <input type="number" value={set.weight != null ? set.weight : (ex.workingWeight || "")}
-                              onChange={e => updateSetWeight(exIdx, setIdx, e.target.value)}
-                              style={{ ...S.input, width: 70, textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px",
-                                borderColor: weightChanged ? "#f59e0b44" : "#22c55e22",
-                                color: weightChanged ? "#f59e0b" : T.inputText }} placeholder="0" />
-                            <span style={{ fontSize: 9, color: T.textMuted }}>lb</span>
-                          </div>
-                          <span style={{ fontSize: 9, color: T.textFaint }}>×</span>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <input type="number" value={set.reps || ""} onChange={e => updateReps(exIdx, "working", setIdx, e.target.value)}
-                              style={{ ...S.input, width: 50, textAlign: "center", fontSize: 13, fontWeight: 700, padding: "4px 6px", borderColor: "#22c55e22" }} placeholder="12" />
-                            <span style={{ fontSize: 9, color: T.textMuted }}>reps</span>
-                          </div>
-                          {weightChanged && <span style={{ fontSize: 8, color: "#f59e0b", letterSpacing: 0.5 }}>BUMPED</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Add/remove set buttons */}
-                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                  <button onClick={() => addSet(exIdx, "working")} style={{ ...S.btnOutline("#22c55e"), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><PlusIcon /> SET</button>
-                  {ex.workingSets.length > 1 && (
-                    <button onClick={() => removeSet(exIdx, "working")} style={{ ...S.btnOutline("#333"), padding: "6px 12px", fontSize: 9, width: "auto", display: "flex", alignItems: "center", gap: 4 }}><MinusIcon /> SET</button>
-                  )}
-                </div>
-              </div>
-
-              {/* ── NOTES ── */}
-              <div style={{ padding: "10px 16px 14px", borderTop: `1px solid ${T.borderSubtle}` }}>
-                <div style={{ ...S.sectionLabel, color: T.textMuted, marginBottom: 6 }}>
-                  <EditIcon /> NOTES
-                </div>
-                <textarea
-                  value={ex.notes || ""}
-                  onChange={e => updateField(exIdx, "notes", e.target.value)}
-                  placeholder="Form cues, how it felt, weight adjustments..."
-                  style={{
-                    ...S.input,
-                    minHeight: 50,
-                    resize: "vertical",
-                    fontSize: 12,
-                    lineHeight: 1.5,
-                    padding: "8px 10px",
-                    borderColor: T.borderInput,
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
+          return renderStrengthCard(ex, exIdx, catInfo);
 
         {/* ── COOLDOWN NOTES ── */}
         <div style={{ ...S.card, padding: 0, marginBottom: 16, borderColor: "#8b5cf622" }}>
