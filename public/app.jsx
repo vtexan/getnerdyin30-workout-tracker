@@ -136,9 +136,12 @@ const CATEGORY_COLORS = {
   tabata: { accent: "#a855f7", label: "Tabata" },
 };
 
-const APP_VERSION = "0.16";
+const APP_VERSION = "0.16.1";
 const APP_BUILD_DATE = "2026-03-11";
 const CHANGELOG = [
+  { version: "0.16.1", date: "2026-03-11", changes: [
+    "Reorder exercises mid-workout — up/down arrows on every exercise card",
+  ]},
   { version: "0.16", date: "2026-03-11", changes: [
     "New Tabata category — log rounds (20s on / 10s off), tap to complete each round, + button to add more",
     "New Carry category — log weight, laps, and optional distance per set, + button to add sets",
@@ -1780,6 +1783,13 @@ function WorkoutTracker() {
       }
     };
 
+    const moveExercise = (exIdx, dir) => {
+      const exercises = activeWorkout.exercises;
+      const to = exIdx + dir;
+      if (to < 0 || to >= exercises.length) return;
+      setActiveWorkout({ ...activeWorkout, exercises: moveItem(exercises, exIdx, to) });
+    };
+
     const removeExercise = (exIdx) => {
       const ex = activeWorkout.exercises[exIdx];
       const hasProgress = ex.isCardio
@@ -1988,6 +1998,14 @@ function WorkoutTracker() {
                       style={{ background: swappingExerciseIdx === exIdx ? "#0ea5e915" : "none", border: `1px solid ${swappingExerciseIdx === exIdx ? "#0ea5e9" : "#0ea5e925"}`, borderRadius: 4, color: "#0ea5e9", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: swappingExerciseIdx === exIdx ? 1 : 0.6 }}>
                       <SwapIcon />
                     </button>
+                      <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
+                        style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === 0 ? T.textFaint : T.textMuted, cursor: exIdx === 0 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === 0 ? 0.3 : 0.6 }}>
+                        <ArrowUpSmall />
+                      </button>
+                      <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === activeWorkout.exercises.length - 1}
+                        style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === activeWorkout.exercises.length - 1 ? T.textFaint : T.textMuted, cursor: exIdx === activeWorkout.exercises.length - 1 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === activeWorkout.exercises.length - 1 ? 0.3 : 0.6 }}>
+                        <ArrowDownSmall />
+                      </button>
                     <button onClick={() => removeExercise(exIdx)}
                       style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
                       <XIcon />
@@ -2114,13 +2132,21 @@ function WorkoutTracker() {
                       <div style={S.tag(carryColor)}>Carry</div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: allCarryDone ? carryColor : T.textStrong, marginTop: 6 }}>{ex.name}</div>
                     </div>
-                    <div style={{ display: "flex", gap: 6 }}>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       {exInfo?.videoUrl && (
                         <a href={getVideoUrl(exInfo)} target="_blank" rel="noopener noreferrer"
                           style={{ color: carryColor, display: "flex", alignItems: "center", gap: 4, fontSize: 9, textDecoration: "none", padding: "4px 8px", borderRadius: 4, border: `1px solid ${carryColor}25`, letterSpacing: 0.5 }}>
                           <PlayIcon /> Form
                         </a>
                       )}
+                      <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
+                        style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === 0 ? T.textFaint : T.textMuted, cursor: exIdx === 0 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === 0 ? 0.3 : 0.6 }}>
+                        <ArrowUpSmall />
+                      </button>
+                      <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === activeWorkout.exercises.length - 1}
+                        style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === activeWorkout.exercises.length - 1 ? T.textFaint : T.textMuted, cursor: exIdx === activeWorkout.exercises.length - 1 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === activeWorkout.exercises.length - 1 ? 0.3 : 0.6 }}>
+                        <ArrowDownSmall />
+                      </button>
                       <button onClick={() => removeExercise(exIdx)}
                         style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
                         <XIcon />
@@ -2209,10 +2235,20 @@ function WorkoutTracker() {
                       <div style={{ fontSize: 14, fontWeight: 700, color: allTabataDone ? tabataColor : T.textStrong, marginTop: 6 }}>{ex.name}</div>
                       <div style={{ fontSize: 9, color: T.textFaint, marginTop: 2 }}>20s on · 10s off · per round</div>
                     </div>
-                    <button onClick={() => removeExercise(exIdx)}
-                      style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
-                      <XIcon />
-                    </button>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
+                        style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === 0 ? T.textFaint : T.textMuted, cursor: exIdx === 0 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === 0 ? 0.3 : 0.6 }}>
+                        <ArrowUpSmall />
+                      </button>
+                      <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === activeWorkout.exercises.length - 1}
+                        style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === activeWorkout.exercises.length - 1 ? T.textFaint : T.textMuted, cursor: exIdx === activeWorkout.exercises.length - 1 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === activeWorkout.exercises.length - 1 ? 0.3 : 0.6 }}>
+                        <ArrowDownSmall />
+                      </button>
+                      <button onClick={() => removeExercise(exIdx)}
+                        style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
+                        <XIcon />
+                      </button>
+                    </div>
                   </div>
                 </div>
                 {/* Rounds */}
@@ -2279,6 +2315,14 @@ function WorkoutTracker() {
                   <button onClick={() => setSwappingExerciseIdx(swappingExerciseIdx === exIdx ? null : exIdx)}
                     style={{ background: swappingExerciseIdx === exIdx ? "#0ea5e915" : "none", border: `1px solid ${swappingExerciseIdx === exIdx ? "#0ea5e9" : "#0ea5e925"}`, borderRadius: 4, color: "#0ea5e9", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: swappingExerciseIdx === exIdx ? 1 : 0.6 }}>
                     <SwapIcon />
+                  </button>
+                  <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
+                    style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === 0 ? T.textFaint : T.textMuted, cursor: exIdx === 0 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === 0 ? 0.3 : 0.6 }}>
+                    <ArrowUpSmall />
+                  </button>
+                  <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === activeWorkout.exercises.length - 1}
+                    style={{ background: "none", border: `1px solid ${T.borderSubtle}`, borderRadius: 4, color: exIdx === activeWorkout.exercises.length - 1 ? T.textFaint : T.textMuted, cursor: exIdx === activeWorkout.exercises.length - 1 ? "default" : "pointer", padding: "4px 6px", display: "flex", alignItems: "center", opacity: exIdx === activeWorkout.exercises.length - 1 ? 0.3 : 0.6 }}>
+                    <ArrowDownSmall />
                   </button>
                   <button onClick={() => removeExercise(exIdx)}
                     style={{ background: "none", border: `1px solid #e9456025`, borderRadius: 4, color: "#e94560", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.5 }}>
