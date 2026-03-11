@@ -1911,56 +1911,6 @@ function WorkoutTracker() {
       if (ex.isTabata) return s + (ex.rounds || []).filter(r => r.completed).length;
       return s + (ex.warmupSets || []).filter(s => s.completed).length + (ex.workingSets || []).filter(s => s.completed).length;
     }, 0);
-    const progress = totalSets > 0 ? (completedSets / totalSets * 100) : 0;
-
-    return (
-      <div>
-        {/* Progress */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <div>
-              {editingLogIdx !== null && (
-                <div style={{ fontSize: 8, color: "#f59e0b", letterSpacing: 1.5, fontWeight: 700, marginBottom: 2 }}>✏ EDITING</div>
-              )}
-              <span style={{ fontSize: 10, color: T.textMuted, letterSpacing: 1.5 }}>{activeWorkout.name.toUpperCase()}</span>
-              {activeWorkout.location && (
-                <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
-                  <span style={{ color: "#0ea5e9" }}><MapPinIcon /></span>
-                  <span style={{ fontSize: 9, color: "#0ea5e9" }}>{activeWorkout.location}</span>
-                </div>
-              )}
-            </div>
-            <span style={{ fontSize: 10, color: "#e94560", fontWeight: 700 }}>{completedSets}/{totalSets} SETS</span>
-          </div>
-          <div style={{ height: 3, background: T.borderSubtle, borderRadius: 2, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg, #e94560, #f59e0b)", borderRadius: 2, transition: "width 0.3s" }} />
-          </div>
-        </div>
-
-        {/* ── WARMUP NOTES ── */}
-        <div style={{ ...S.card, padding: 0, marginBottom: 12, borderColor: "#f59e0b22" }}>
-          <div style={{ padding: "10px 16px", borderBottom: `1px solid ${T.borderSubtle}`, display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 11, color: "#f59e0b" }}>~</span>
-            <span style={{ fontSize: 9, fontWeight: 700, color: "#f59e0b", letterSpacing: 1.5 }}>WARMUP</span>
-          </div>
-          <div style={{ padding: "10px 16px" }}>
-            <textarea
-              value={activeWorkout.warmupNotes || ""}
-              onChange={e => setActiveWorkout({ ...activeWorkout, warmupNotes: e.target.value })}
-              placeholder="Leg swings, hurdle steps, TRX squat & row, band pull-aparts..."
-              style={{
-                ...S.input,
-                minHeight: 44,
-                resize: "vertical",
-                fontSize: 11,
-                lineHeight: 1.6,
-                padding: "8px 10px",
-                borderColor: "#f59e0b15",
-              }}
-            />
-          </div>
-        </div>
-
     // ═══════════════════════════════════════
     // EXERCISE CARD RENDER FUNCTIONS
     // Each function closes over: activeWorkout, setActiveWorkout, allExercises,
@@ -2506,6 +2456,56 @@ function WorkoutTracker() {
       </div>
     );
     };
+    const progress = totalSets > 0 ? (completedSets / totalSets * 100) : 0;
+
+    return (
+      <div>
+        {/* Progress */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <div>
+              {editingLogIdx !== null && (
+                <div style={{ fontSize: 8, color: "#f59e0b", letterSpacing: 1.5, fontWeight: 700, marginBottom: 2 }}>✏ EDITING</div>
+              )}
+              <span style={{ fontSize: 10, color: T.textMuted, letterSpacing: 1.5 }}>{activeWorkout.name.toUpperCase()}</span>
+              {activeWorkout.location && (
+                <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
+                  <span style={{ color: "#0ea5e9" }}><MapPinIcon /></span>
+                  <span style={{ fontSize: 9, color: "#0ea5e9" }}>{activeWorkout.location}</span>
+                </div>
+              )}
+            </div>
+            <span style={{ fontSize: 10, color: "#e94560", fontWeight: 700 }}>{completedSets}/{totalSets} SETS</span>
+          </div>
+          <div style={{ height: 3, background: T.borderSubtle, borderRadius: 2, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg, #e94560, #f59e0b)", borderRadius: 2, transition: "width 0.3s" }} />
+          </div>
+        </div>
+
+        {/* ── WARMUP NOTES ── */}
+        <div style={{ ...S.card, padding: 0, marginBottom: 12, borderColor: "#f59e0b22" }}>
+          <div style={{ padding: "10px 16px", borderBottom: `1px solid ${T.borderSubtle}`, display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 11, color: "#f59e0b" }}>~</span>
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#f59e0b", letterSpacing: 1.5 }}>WARMUP</span>
+          </div>
+          <div style={{ padding: "10px 16px" }}>
+            <textarea
+              value={activeWorkout.warmupNotes || ""}
+              onChange={e => setActiveWorkout({ ...activeWorkout, warmupNotes: e.target.value })}
+              placeholder="Leg swings, hurdle steps, TRX squat & row, band pull-aparts..."
+              style={{
+                ...S.input,
+                minHeight: 44,
+                resize: "vertical",
+                fontSize: 11,
+                lineHeight: 1.6,
+                padding: "8px 10px",
+                borderColor: "#f59e0b15",
+              }}
+            />
+          </div>
+        </div>
+
 
         {activeWorkout.exercises.map((ex, exIdx) => {
           const exInfo = allExercises.find(e => e.id === ex.exerciseId);
