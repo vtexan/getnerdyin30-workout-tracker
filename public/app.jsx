@@ -2523,6 +2523,8 @@ function WorkoutTracker() {
           // ── STRENGTH EXERCISE ──
           return renderStrengthCard(ex, exIdx, catInfo);
 
+        })}
+
         {/* ── COOLDOWN NOTES ── */}
         <div style={{ ...S.card, padding: 0, marginBottom: 16, borderColor: "#8b5cf622" }}>
           <div style={{ padding: "10px 16px", borderBottom: `1px solid ${T.borderSubtle}`, display: "flex", alignItems: "center", gap: 6 }}>
