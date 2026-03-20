@@ -748,7 +748,7 @@ function WorkoutTracker() {
     const totalWorkouts = data.workoutLogs.length;
     const totalSets = data.workoutLogs.reduce((sum, log) =>
       sum + log.exercises.reduce((s, ex) => (ex.warmupSets || []).filter(s => s.completed).length + (ex.workingSets || ex.sets || []).filter(s => s.completed).length, 0), 0);
-    const prCount = allExercises.filter(ex => getPR(ex.id, data.workoutLogs)).length;
+    const prCount = allExercises.filter(ex => data.workoutLogs.some(log => log.exercises.find(e => e.exerciseId === ex.id))).length;
 
     return (
       <div>
@@ -2242,7 +2242,7 @@ function WorkoutTracker() {
     const allWorkingDone = (ex.workingSets || []).every(s => s.completed);
     const allDone = allWarmupDone && allWorkingDone;
     const maxSetWeight = Math.max(ex.workingWeight || 0, ...ex.workingSets.map(s => s.weight || 0));
-    const isNewPR = maxSetWeight > 0 && ex.pr && maxSetWeight > ex.pr && allWorkingDone;
+    const isNewPR = maxSetWeight > 0 && allWorkingDone && (!ex.pr || maxSetWeight > ex.pr);
 
     return (
       <div key={exIdx} style={{ ...S.card, borderColor: allDone ? "#22c55e22" : T.border, position: "relative", overflow: "hidden", padding: 0 }}>
@@ -2810,18 +2810,42 @@ function WorkoutTracker() {
   // ═══════════════════════════════════════
   const renderPRs = () => {
     const prs = allExercises.map(ex => {
+      // Gather all logs for this exercise (any session it appeared in)
       const logs = data.workoutLogs.map(log => {
         const found = log.exercises.find(e => e.exerciseId === ex.id);
         if (!found) return null;
-        const maxSetWeight = found.workingSets ? Math.max(found.workingWeight || 0, ...found.workingSets.map(s => (s.weight && s.completed) ? s.weight : 0)) : (found.workingWeight || found.weight || 0);
+        const maxSetWeight = found.workingSets
+          ? Math.max(found.workingWeight || 0, ...found.workingSets.map(s => (s.weight && s.completed) ? s.weight : 0))
+          : (found.workingWeight || found.weight || 0);
         return { date: log.date, weight: maxSetWeight };
-      }).filter(Boolean).filter(l => l.weight > 0);
-      if (logs.length === 0) return null;
-      const best = logs.reduce((max, l) => l.weight > max.weight ? l : max, logs[0]);
-      return { ...ex, prWeight: best.weight, prDate: best.date, totalSessions: logs.length };
-    }).filter(Boolean).sort((a, b) => b.prWeight - a.prWeight);
+      }).filter(Boolean);
+
+      if (logs.length === 0) return null; // Never logged — skip entirely
+
+      const hasWeight = logs.some(l => l.weight > 0);
+      const logsWithWeight = logs.filter(l => l.weight > 0);
+      const best = hasWeight
+        ? logsWithWeight.reduce((max, l) => l.weight > max.weight ? l : max, logsWithWeight[0])
+        : logs[logs.length - 1]; // most recent log date for no-weight exercises
+
+      return {
+        ...ex,
+        prWeight: hasWeight ? best.weight : null,
+        prDate: best.date,
+        totalSessions: logs.length,
+        isFirstOnly: logs.length === 1 && hasWeight,
+        noWeight: !hasWeight,
+      };
+    }).filter(Boolean).sort((a, b) => {
+      // Weighted exercises first (sorted by weight desc), no-weight at bottom
+      if (a.noWeight && !b.noWeight) return 1;
+      if (!a.noWeight && b.noWeight) return -1;
+      return (b.prWeight || 0) - (a.prWeight || 0);
+    });
 
     const medals = ["#f59e0b", "#a0a0b0", "#cd7f32"];
+    // Only weighted exercises get medals
+    const weightedPrs = prs.filter(p => !p.noWeight);
 
     return (
       <div>
@@ -2831,25 +2855,60 @@ function WorkoutTracker() {
             <div style={{ fontSize: 12 }}>No PRs yet</div>
             <div style={{ fontSize: 10, marginTop: 4 }}>Log your first workout to start tracking</div>
           </div>
-        ) : prs.map((pr, i) => {
+        ) : prs.map((pr) => {
           const catInfo = CATEGORY_COLORS[pr.category] || { accent: "#888" };
-          const medalColor = medals[i] || "#333";
+          const weightedIdx = weightedPrs.indexOf(pr);
+          const medalColor = weightedIdx >= 0 && weightedIdx < 3 ? medals[weightedIdx] : "#333";
+          const showMedal = weightedIdx >= 0 && weightedIdx < 3;
+
           return (
             <div key={pr.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}>
-              <div style={{
-                width: 34, height: 34, borderRadius: 8, flexShrink: 0,
-                background: i < 3 ? medalColor + "12" : T.bgInset,
-                border: `1px solid ${i < 3 ? medalColor + "44" : T.borderInput}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 13, fontWeight: 800, color: i < 3 ? medalColor : "#444",
-              }}>{i + 1}</div>
+              {/* Rank / First / BW badge */}
+              {pr.noWeight ? (
+                <div style={{
+                  width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+                  background: T.bgInset, border: `1px solid ${T.borderInput}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 9, fontWeight: 700, color: T.textFaint, letterSpacing: 0.3,
+                }}>BW</div>
+              ) : pr.isFirstOnly ? (
+                <div style={{
+                  width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+                  background: "#22c55e10", border: "1px solid #22c55e44",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 8, fontWeight: 800, color: "#22c55e", letterSpacing: 0.3,
+                }}>NEW</div>
+              ) : (
+                <div style={{
+                  width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+                  background: showMedal ? medalColor + "12" : T.bgInset,
+                  border: `1px solid ${showMedal ? medalColor + "44" : T.borderInput}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 13, fontWeight: 800, color: showMedal ? medalColor : "#444",
+                }}>{weightedIdx + 1}</div>
+              )}
+
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: T.textStrong, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pr.name}</div>
-                <div style={{ fontSize: 9, color: T.textFaint, marginTop: 1 }}>{formatDate(pr.prDate)} · {pr.totalSessions} session{pr.totalSessions > 1 ? "s" : ""}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.textStrong, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pr.name}</div>
+                  {pr.isFirstOnly && (
+                    <span style={{ fontSize: 8, fontWeight: 700, color: "#22c55e", background: "#22c55e15", borderRadius: 4, padding: "1px 5px", letterSpacing: 0.5, flexShrink: 0 }}>FIRST LOG</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 9, color: T.textFaint, marginTop: 1 }}>
+                  {formatDate(pr.prDate)} · {pr.totalSessions} session{pr.totalSessions > 1 ? "s" : ""}
+                </div>
               </div>
+
               <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={{ fontSize: 17, fontWeight: 800, color: catInfo.accent }}>{pr.prWeight}</div>
-                <div style={{ fontSize: 8, color: T.textMuted, letterSpacing: 0.5 }}>LB</div>
+                {pr.noWeight ? (
+                  <div style={{ fontSize: 17, fontWeight: 800, color: T.textFaint }}>—</div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: catInfo.accent }}>{pr.prWeight}</div>
+                    <div style={{ fontSize: 8, color: T.textMuted, letterSpacing: 0.5 }}>LB</div>
+                  </>
+                )}
               </div>
             </div>
           );
