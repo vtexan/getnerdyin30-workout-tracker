@@ -2814,9 +2814,11 @@ function WorkoutTracker() {
       const logs = data.workoutLogs.map(log => {
         const found = log.exercises.find(e => e.exerciseId === ex.id);
         if (!found) return null;
-        const maxSetWeight = found.workingSets
-          ? Math.max(found.workingWeight || 0, ...found.workingSets.map(s => (s.weight && s.completed) ? s.weight : 0))
-          : (found.workingWeight || found.weight || 0);
+        const maxSetWeight = found.isCarry
+          ? Math.max(0, ...(found.sets || []).map(s => (s.weight && s.completed) ? s.weight : 0))
+          : found.workingSets
+            ? Math.max(found.workingWeight || 0, ...found.workingSets.map(s => (s.weight && s.completed) ? s.weight : 0))
+            : (found.workingWeight || found.weight || 0);
         return { date: log.date, weight: maxSetWeight };
       }).filter(Boolean);
 
