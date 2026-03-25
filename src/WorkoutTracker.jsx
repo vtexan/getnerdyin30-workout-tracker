@@ -15,6 +15,9 @@ import {
   ArrowRightIcon, MapPinIcon, CopyIcon, TemplateIcon, CalendarIcon,
 } from './icons.jsx';
 import { useWorkout } from './context/WorkoutContext.jsx';
+import Build from './components/Build.jsx';
+import Progress from './components/Progress.jsx';
+import PRBoard from './components/PRBoard.jsx';
 import CardioCard from './components/cards/CardioCard.jsx';
 import CarryCard from './components/cards/CarryCard.jsx';
 import TabataCard from './components/cards/TabataCard.jsx';
@@ -1119,112 +1122,6 @@ export default function WorkoutTracker() {
   // ═══════════════════════════════════════
   // BUILD WORKOUT
   // ═══════════════════════════════════════
-  const renderBuild = () => {
-    const categories = [...new Set(allExercises.map(e => e.category))];
-    return (
-      <div>
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ ...S.sectionLabel, color: T.textMuted }}>Workout Name</div>
-          <input style={S.input} placeholder="e.g. Posterior Chain + Back" value={workoutName} onChange={e => setWorkoutName(e.target.value)} />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ ...S.sectionLabel, color: T.textMuted }}>Date</div>
-          <input type="date" value={workoutDate} onChange={e => setWorkoutDate(e.target.value)}
-            max={new Date().toISOString().split("T")[0]}
-            style={{ ...S.input, width: "auto" }} />
-          {workoutDate !== new Date().toISOString().split("T")[0] && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-              <span style={{ fontSize: 9, color: "#f59e0b", fontWeight: 600 }}>⏮ BACKDATED ENTRY</span>
-              <button onClick={() => setWorkoutDate(new Date().toISOString().split("T")[0])}
-                style={{ background: "none", border: "none", color: T.textFaint, cursor: "pointer", fontSize: 9, fontFamily: "'JetBrains Mono', monospace", textDecoration: "underline" }}>reset to today</button>
-            </div>
-          )}
-        </div>
-
-        {/* Location picker */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ ...S.sectionLabel, color: T.textMuted }}><MapPinIcon /> Location</div>
-
-          {/* Selected location display */}
-          {workoutLocation ? (
-            <div style={{ ...S.card, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: "#22c55e44" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "#22c55e" }}><MapPinIcon /></span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: T.textStrong }}>{workoutLocation}</span>
-              </div>
-              <button onClick={() => setWorkoutLocation("")} style={{ background: "none", border: "none", color: T.textFaint, cursor: "pointer", padding: 4 }}><XIcon /></button>
-            </div>
-          ) : (
-            <div>
-              {/* Search/manual input */}
-              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                <input style={{ ...S.input, flex: 1 }} placeholder="Type gym name..." value={locationSearch}
-                  onChange={e => setLocationSearch(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && locationSearch.trim()) { setWorkoutLocation(locationSearch.trim()); setLocationSearch(""); }}} />
-                <button onClick={() => { if (locationSearch.trim()) { setWorkoutLocation(locationSearch.trim()); setLocationSearch(""); }}}
-                  style={{ ...S.btn("#22c55e"), width: "auto", padding: "8px 14px", fontSize: 10 }}>SET</button>
-              </div>
-
-              {/* Recent gyms */}
-              {getRecentGyms().length > 0 && (
-                <div>
-                  <div style={{ fontSize: 8, color: T.textFaint, letterSpacing: 1, marginBottom: 4 }}>RECENT</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                    {getRecentGyms().map((gym, i) => (
-                      <button key={i} onClick={() => setWorkoutLocation(gym)}
-                        style={{ background: T.bgInset, border: `1px solid ${T.borderInput}`, borderRadius: 6, padding: "6px 10px", fontSize: 10, color: T.text, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace" }}>
-                        {gym}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div style={{ ...S.sectionLabel, color: T.textMuted, marginBottom: 14 }}>Select Exercises ({selectedExercises.length})</div>
-
-        {categories.map(cat => {
-          const catExercises = allExercises.filter(e => e.category === cat);
-          const catInfo = CATEGORY_COLORS[cat] || { accent: "#888", label: cat };
-          return (
-            <div key={cat} style={{ marginBottom: 14 }}>
-              <div style={S.tag(catInfo.accent)}>{catInfo.label}</div>
-              {catExercises.map(ex => {
-                const selected = selectedExercises.includes(ex.id);
-                const pr = getPR(ex.id, data.workoutLogs);
-                return (
-                  <div key={ex.id} onClick={() => setSelectedExercises(prev => selected ? prev.filter(id => id !== ex.id) : [...prev, ex.id])}
-                    style={{ ...S.card, marginBottom: 4, padding: "10px 14px", cursor: "pointer", borderColor: selected ? catInfo.accent + "66" : T.border, display: "flex", justifyContent: "space-between", alignItems: "center", transition: "border-color 0.15s" }}>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: selected ? T.textStrong : T.textMuted }}>{ex.name}</div>
-                      <div style={{ fontSize: 9, color: T.textFaint, marginTop: 1 }}>{ex.muscle}</div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      {pr && <span style={{ fontSize: 9, color: "#22c55e" }}>PR: {pr}lb</span>}
-                      <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${selected ? catInfo.accent : T.borderInput}`, background: selected ? catInfo.accent + "20" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: catInfo.accent }}>
-                        {selected && <CheckIcon />}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
-
-        {selectedExercises.length > 0 && (
-          <div style={{ position: "sticky", bottom: 70, paddingTop: 12 }}>
-            <button style={S.btn()} onClick={startWorkout}>START ({selectedExercises.length} EXERCISES)</button>
-          </div>
-        )}
-        <button onClick={() => setView("dashboard")} style={{ ...S.btnOutline("#555"), marginTop: 8 }}>CANCEL</button>
-      </div>
-    );
-  };
-
   // ═══════════════════════════════════════
   // HELPERS
   // ═══════════════════════════════════════
@@ -1712,207 +1609,9 @@ export default function WorkoutTracker() {
   // ═══════════════════════════════════════
   // PROGRESS
   // ═══════════════════════════════════════
-  const renderProgress = () => {
-    const exercisesWithHistory = allExercises
-      .map(ex => {
-        const logs = data.workoutLogs.map(log => {
-          const found = log.exercises.find(e => e.exerciseId === ex.id);
-          if (!found) return null;
-          const maxSetWeight = found.workingSets ? Math.max(found.workingWeight || 0, ...found.workingSets.map(s => (s.weight && s.completed) ? s.weight : 0)) : (found.workingWeight || found.weight || 0);
-          return { date: log.date, warmupWeight: found.warmupWeight || 0, workingWeight: maxSetWeight };
-        }).filter(Boolean);
-        return { ...ex, history: logs };
-      })
-      .filter(e => e.history.length > 0);
-
-    return (
-      <div>
-        <div style={{ ...S.sectionLabel, color: T.textMuted, marginBottom: 14 }}>Exercise Progress</div>
-        {exercisesWithHistory.length === 0 ? (
-          <div style={{ ...S.card, textAlign: "center", padding: 30, color: T.textFaint }}>
-            <div style={{ fontSize: 12 }}>No workout data yet</div>
-            <div style={{ fontSize: 10, marginTop: 4 }}>Complete your first workout to see progress</div>
-          </div>
-        ) : exercisesWithHistory.map(ex => {
-          const catInfo = CATEGORY_COLORS[ex.category] || { accent: "#888" };
-          const workingWeights = ex.history.map(h => h.workingWeight).filter(w => w > 0);
-          const pr = workingWeights.length > 0 ? Math.max(...workingWeights) : 0;
-          const latest = workingWeights[workingWeights.length - 1] || 0;
-          const first = workingWeights[0] || 0;
-          const change = first > 0 ? Math.round((latest - first) / first * 100) : 0;
-          const suggestion = getProgressionSuggestion(ex.id, data.workoutLogs);
-
-          return (
-            <div key={ex.id} style={S.card}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <div style={S.tag(catInfo.accent)}>{CATEGORY_COLORS[ex.category]?.label}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.textStrong, marginTop: 6 }}>{ex.name}</div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 17, fontWeight: 800, color: "#e94560" }}>{pr} lb</div>
-                  <div style={{ fontSize: 8, color: T.textMuted, letterSpacing: 1 }}>WORKING PR</div>
-                </div>
-              </div>
-
-              {/* History bars */}
-              <div style={{ display: "flex", gap: 3, marginTop: 14, alignItems: "flex-end", height: 36 }}>
-                {ex.history.map((h, i) => {
-                  const maxW = Math.max(...ex.history.map(x => x.workingWeight));
-                  const pct = maxW > 0 ? (h.workingWeight / maxW * 100) : 0;
-                  return (
-                    <div key={i} style={{ flex: 1, maxWidth: 28, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                      <div style={{ width: "100%", height: `${Math.max(pct, 8)}%`, minHeight: 3, background: h.workingWeight === pr ? "#e94560" : catInfo.accent + "50", borderRadius: 2 }} />
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ display: "flex", gap: 3, marginTop: 2 }}>
-                {ex.history.map((h, i) => (
-                  <div key={i} style={{ flex: 1, maxWidth: 28, textAlign: "center", fontSize: 7, color: T.textFaint }}>{h.workingWeight}</div>
-                ))}
-              </div>
-
-              {/* Warmup vs Working comparison */}
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, paddingTop: 10, borderTop: `1px solid ${T.borderSubtle}`, flexWrap: "wrap", gap: 6 }}>
-                <div>
-                  <span style={{ fontSize: 9, color: T.textMuted }}>Warmup: </span>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "#f59e0b" }}>{ex.history[ex.history.length - 1]?.warmupWeight || "—"} lb</span>
-                </div>
-                <div>
-                  <span style={{ fontSize: 9, color: T.textMuted }}>Change: </span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: change > 0 ? "#22c55e" : change < 0 ? "#e94560" : "#444" }}>
-                    {change > 0 ? "+" : ""}{change}%
-                  </span>
-                </div>
-                {suggestion && (
-                  <div>
-                    <span style={{ fontSize: 9, color: T.textMuted }}>Next: </span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b" }}>{suggestion} lb</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
   // ═══════════════════════════════════════
   // PR BOARD
   // ═══════════════════════════════════════
-  const renderPRs = () => {
-    const prs = allExercises.map(ex => {
-      // Gather all logs for this exercise (any session it appeared in)
-      const logs = data.workoutLogs.map(log => {
-        const found = log.exercises.find(e => e.exerciseId === ex.id);
-        if (!found) return null;
-        const maxSetWeight = found.isCarry
-          ? Math.max(0, ...(found.sets || []).map(s => (s.weight && s.completed) ? s.weight : 0))
-          : found.workingSets
-            ? Math.max(found.workingWeight || 0, ...found.workingSets.map(s => (s.weight && s.completed) ? s.weight : 0))
-            : (found.workingWeight || found.weight || 0);
-        return { date: log.date, weight: maxSetWeight };
-      }).filter(Boolean);
-
-      if (logs.length === 0) return null; // Never logged — skip entirely
-
-      const hasWeight = logs.some(l => l.weight > 0);
-      const logsWithWeight = logs.filter(l => l.weight > 0);
-      const best = hasWeight
-        ? logsWithWeight.reduce((max, l) => l.weight > max.weight ? l : max, logsWithWeight[0])
-        : logs[logs.length - 1]; // most recent log date for no-weight exercises
-
-      return {
-        ...ex,
-        prWeight: hasWeight ? best.weight : null,
-        prDate: best.date,
-        totalSessions: logs.length,
-        isFirstOnly: logs.length === 1 && hasWeight,
-        noWeight: !hasWeight,
-      };
-    }).filter(Boolean).sort((a, b) => {
-      // Weighted exercises first (sorted by weight desc), no-weight at bottom
-      if (a.noWeight && !b.noWeight) return 1;
-      if (!a.noWeight && b.noWeight) return -1;
-      return (b.prWeight || 0) - (a.prWeight || 0);
-    });
-
-    const medals = ["#f59e0b", "#a0a0b0", "#cd7f32"];
-    // Only weighted exercises get medals
-    const weightedPrs = prs.filter(p => !p.noWeight);
-
-    return (
-      <div>
-        <div style={{ ...S.sectionLabel, color: T.textMuted, marginBottom: 14 }}>Personal Records</div>
-        {prs.length === 0 ? (
-          <div style={{ ...S.card, textAlign: "center", padding: 30, color: T.textFaint }}>
-            <div style={{ fontSize: 12 }}>No PRs yet</div>
-            <div style={{ fontSize: 10, marginTop: 4 }}>Log your first workout to start tracking</div>
-          </div>
-        ) : prs.map((pr) => {
-          const catInfo = CATEGORY_COLORS[pr.category] || { accent: "#888" };
-          const weightedIdx = weightedPrs.indexOf(pr);
-          const medalColor = weightedIdx >= 0 && weightedIdx < 3 ? medals[weightedIdx] : "#333";
-          const showMedal = weightedIdx >= 0 && weightedIdx < 3;
-
-          return (
-            <div key={pr.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}>
-              {/* Rank / First / BW badge */}
-              {pr.noWeight ? (
-                <div style={{
-                  width: 34, height: 34, borderRadius: 8, flexShrink: 0,
-                  background: T.bgInset, border: `1px solid ${T.borderInput}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 9, fontWeight: 700, color: T.textFaint, letterSpacing: 0.3,
-                }}>BW</div>
-              ) : pr.isFirstOnly ? (
-                <div style={{
-                  width: 34, height: 34, borderRadius: 8, flexShrink: 0,
-                  background: "#22c55e10", border: "1px solid #22c55e44",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 8, fontWeight: 800, color: "#22c55e", letterSpacing: 0.3,
-                }}>NEW</div>
-              ) : (
-                <div style={{
-                  width: 34, height: 34, borderRadius: 8, flexShrink: 0,
-                  background: showMedal ? medalColor + "12" : T.bgInset,
-                  border: `1px solid ${showMedal ? medalColor + "44" : T.borderInput}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 13, fontWeight: 800, color: showMedal ? medalColor : "#444",
-                }}>{weightedIdx + 1}</div>
-              )}
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: T.textStrong, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pr.name}</div>
-                  {pr.isFirstOnly && (
-                    <span style={{ fontSize: 8, fontWeight: 700, color: "#22c55e", background: "#22c55e15", borderRadius: 4, padding: "1px 5px", letterSpacing: 0.5, flexShrink: 0 }}>FIRST LOG</span>
-                  )}
-                </div>
-                <div style={{ fontSize: 9, color: T.textFaint, marginTop: 1 }}>
-                  {formatDate(pr.prDate)} · {pr.totalSessions} session{pr.totalSessions > 1 ? "s" : ""}
-                </div>
-              </div>
-
-              <div style={{ textAlign: "right", flexShrink: 0 }}>
-                {pr.noWeight ? (
-                  <div style={{ fontSize: 17, fontWeight: 800, color: T.textFaint }}>—</div>
-                ) : (
-                  <>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: catInfo.accent }}>{pr.prWeight}</div>
-                    <div style={{ fontSize: 8, color: T.textMuted, letterSpacing: 0.5 }}>LB</div>
-                  </>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
   // ═══════════════════════════════════════
   // EXERCISE LIBRARY
   // ═══════════════════════════════════════
@@ -3120,11 +2819,11 @@ export default function WorkoutTracker() {
       </div>
 
       {view === "dashboard" && renderDashboard()}
-      {view === "build" && renderBuild()}
+      {view === "build" && <Build allExercises={allExercises} startWorkout={startWorkout} getRecentGyms={getRecentGyms} />}
       {view === "buildTemplate" && renderBuildTemplate()}
       {view === "active" && renderActive()}
-      {view === "progress" && renderProgress()}
-      {view === "prs" && renderPRs()}
+      {view === "progress" && <Progress allExercises={allExercises} />}
+      {view === "prs" && <PRBoard allExercises={allExercises} />}
       {view === "history" && renderHistory()}
       {view === "library" && renderLibrary()}
 
