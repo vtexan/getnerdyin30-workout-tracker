@@ -5,5 +5,12 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/app.js',
+        chunkFileNames: 'assets/app-[hash].js',
+        assetFileNames: 'assets/[name][extname]',
+      },
+    },
   },
 });
