@@ -1,62 +1,27 @@
-# 🏋️ GetNerdyIn30 Workout Tracker
+# GetNerdyIn30 — Workout Tracker
 
-> *"I didn't build an app because I knew how to code. I built it because nothing out there did what I actually needed — and I was curious enough to figure it out as I went."*
+A personal workout tracking web app built to digitize and log gym programming handed off by a personal trainer via PDF. Built with curiosity and vibe coding — no formal CS background, just a real problem and the tools to solve it.
 
-**Live app:** [getnerdyin30-tracker.web.app](https://getnerdyin30-tracker.web.app)  
-**Embedded:** [getnerdyin30.com/workout-tracker](https://getnerdyin30.com/workout-tracker)
-
----
-
-## The Origin
-
-In early 2026, I hired a personal trainer. She's good — programs in cycles, builds on movement patterns, tracks progression week over week. But she hands everything off in PDFs. There's no shared dashboard, no app we're both looking at, no place where my numbers actually live.
-
-I looked around. Every workout app I tried was either built for elite athletes logging one-rep maxes, or a generic "log your reps" grid that felt like filling out a spreadsheet. None of them matched how I actually train.
-
-So I built one that does.
-
-This started as a static HTML workout plan and became a full-stack multi-user web app. Not because I had a roadmap. Because I had a problem and kept asking *"what would it take to fix this?"*
+**Live:** [getnerdyin30-tracker.web.app](https://getnerdyin30-tracker.web.app) · [getnerdyin30.com/workout-tracker](https://getnerdyin30.com/workout-tracker)
 
 ---
 
-## Features
+## What It Does
 
-### 🗓️ Workout Planning & Logging
-- Plan workouts ahead of time on a calendar
-- Start a planned workout and log sets in real time
-- Add, remove, and reorder exercises mid-workout
-- Swap exercises on the fly (machine taken? no problem)
+- **Log workouts** with warmup and working sets, per-set weight tracking, and automatic PR detection
+- **Plan ahead** — build workouts for specific dates on a calendar, with target weights pre-loaded
+- **Templates** — save recurring routines, edit them, and launch with one tap
+- **Exercise library** — built-in exercises plus custom and community-shared exercises
+- **Progress tracking** — weight history charts and a personal records board
+- **History** — full log of every workout, with export/share and soft delete (trash system)
+- **Multi-user** — per-user data via Firebase Auth (Google Sign-In)
 
-### 💪 Exercise Categories
-Five distinct exercise types, each with purpose-built logging:
+### Exercise Categories
 - **Strength** — warmup sets + working sets with per-set weight tracking
-- **Carry** — weight, laps, and optional distance per set (Farmer Carry, Suitcase Carry, etc.)
+- **Cardio** — duration, distance, calories, avg heart rate
+- **Carry** — weight + laps + optional distance (Farmer Carry, Suitcase Carry, etc.)
 - **Tabata** — round-based tracking (20s on / 10s off)
-- **Cardio** — duration, distance, calories, heart rate
-- **Core** — reps-based with optional weight
-
-### 📈 Progress Tracking
-- Per-exercise weight history with visual bar charts
-- PR board — best weight ever logged for every exercise
-  - First-time logs flagged as **FIRST LOG** (because that *is* a PR)
-  - No-weight exercises (Tabata) shown with `—`
-  - Gold / silver / bronze medals for top 3 weighted PRs
-- In-workout **NEW PR!** detection when you beat a previous best
-
-### 📚 Exercise Library
-- Built-in library with form video links (muscleandstrength.com)
-- Add custom exercises with name, category, muscle group, and video URL
-- Shared community library — contribute exercises other users can access
-
-### 🗂️ Templates & History
-- Save workouts as reusable templates
-- Full workout history with set-by-set detail
-- Soft delete / trash system — nothing is permanently gone until you say so
-
-### 🔐 Auth & Multi-User
-- Google Sign-In via Firebase Auth
-- Per-user data isolation (Firestore)
-- Works across all your devices
+- **Posterior, Back, Arms, Legs, Core, Mobility** — all tracked as strength
 
 ---
 
@@ -64,32 +29,43 @@ Five distinct exercise types, each with purpose-built logging:
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 (in-browser Babel — no build step) |
-| Auth | Firebase Authentication (Google Sign-In) |
+| Frontend | React 18 (Vite build) |
+| Auth | Firebase Auth (Google Sign-In) |
 | Database | Cloud Firestore |
 | Hosting | Firebase Hosting |
-| Embedded | WordPress via `<script type="text/babel">` |
-
-Single-file architecture (`app.jsx`) — intentionally lean. No bundler, no CLI, no node_modules in production. Load the script, it runs.
+| WordPress embed | CDN script tag loading Vite bundle |
+| Styling | Inline styles with theme system (dark/light) |
 
 ---
 
-## Architecture Notes
+## Project Structure
 
-**Why no build step?**  
-This app is embedded inside a WordPress site via a `<script>` tag that loads `app.jsx` directly from Firebase Hosting. A build step would break that. In-browser Babel transpilation keeps the deployment model dead simple: edit the file, push to Firebase, done.
-
-**Data model**  
-All user data lives at `users/{uid}/data/workouts` in Firestore. Workout logs, exercise library entries, templates, and trash are all scoped per user. The shared exercise library lives in a separate top-level collection.
-
-**Deploy flow**
-```bash
-mv ~/Downloads/app.jsx ~/gn30-tracker/public/app.jsx
-cd ~/gn30-tracker
-git add public/app.jsx
-git commit -m "your message"
-git push
-firebase deploy --only hosting
+```
+src/
+├── App.jsx                    # Auth shell, wraps WorkoutTracker in WorkoutProvider
+├── WorkoutTracker.jsx          # Router + shared helpers (~900 lines)
+├── firebase.js                # Firebase config + Firestore helpers
+├── constants.js               # DEFAULT_EXERCISES, CATEGORY_COLORS, CHANGELOG, softDelete
+├── utils.js                   # getPR, getLastWorkingWeight, formatDate, etc.
+├── icons.jsx                  # All SVG icon components
+├── context/
+│   └── WorkoutContext.jsx     # All shared state (~40 useState), useWorkout() hook
+├── hooks/
+│   └── useTheme.js            # Computes T (tokens) and S (styles) from theme
+└── components/
+    ├── Build.jsx              # Exercise picker / start workout
+    ├── Progress.jsx           # Weight history charts
+    ├── PRBoard.jsx            # Personal records board
+    ├── History.jsx            # Workout logs, trash, restore
+    ├── Library.jsx            # Exercise CRUD, shared library
+    ├── BuildTemplate.jsx      # Template builder
+    ├── Dashboard.jsx          # Calendar, planned workouts, template editor, plan editor
+    ├── ActiveWorkout.jsx      # Active workout view, exercise cards, finish/discard
+    └── cards/
+        ├── StrengthCard.jsx
+        ├── CardioCard.jsx
+        ├── CarryCard.jsx
+        └── TabataCard.jsx
 ```
 
 ---
@@ -98,48 +74,77 @@ firebase deploy --only hosting
 
 | Version | What shipped |
 |---|---|
-| v0.16.5 | Bug fixes from v0.16.3 refactor — render functions, parameter threading, planned workout data loss fix |
-| v0.16.1 | Mid-workout exercise reordering via up/down arrows |
-| v0.16.0 | Tabata category (round-based) + Carry category (weight + laps + distance) |
-| v0.15.0 | Soft delete / trash system, safe navigation, BUG-007 fix (duplicate calendar entries) |
-| v0.14.0 | Progress charts, PR board, exercise swap |
-| v0.1.0 | Static HTML workout plan for a solo week with Amber |
+| v0.16.5 | Bug fixes from v0.16.3 refactor — render function scoping, exInfo parameter threading, date race condition fix |
+| v0.16.3–4 | Refactor: extract exercise card render functions |
+| v0.16.1 | Mid-workout exercise reordering (up/down arrows on all card types) |
+| v0.16 | Tabata exercise category (round-based tracking) · Carry exercise category (weight + laps + distance) |
+| v0.15 | Soft delete / trash system · safe navigation · smarter discard · BUG-007 fix |
+| v0.14 | Planned workouts (calendar) · date picker · backdated entries |
+| v0.13 | Exercise swap (same-muscle alternatives mid-workout) |
+| v0.12 | Per-set weight overrides · BUMPED indicator |
+| v0.11 | Workout templates · template editor |
+| v0.10 | Progress charts · PR board overhaul |
+| v0.9 | Workout history · export/share |
+| v0.8 | Multi-user auth (Firebase) |
+| v0.7 | Custom exercises · shared library |
+| Earlier | Single-file Babel app → iterative feature additions |
+
+**Current version: v0.16.5** · Migrated to Vite + component architecture in March 2026
 
 ---
 
-## What I Learned
+## Architecture Notes
 
-I didn't set out to learn Firebase. I set out to not lose my workout data when I closed the browser tab.
+**Vite build** — migrated from single-file in-browser Babel transpilation to a proper Vite build pipeline in March 2026. Output is pinned to `dist/assets/app.js` (no content hash) so the WordPress embed script tag never needs updating.
 
-I didn't set out to learn React. I set out to make the exercise list feel less clunky.
+**Firebase v8 compat** — loaded via CDN `<script>` tags in `index.html` (not npm). Required for the WordPress cross-origin embed to work.
 
-I didn't set out to understand per-user data models. I set out to let a friend log in and see if the app made sense to someone who wasn't me.
+**WordPress embed** — `getnerdyin30.com/workout-tracker` loads the Firebase CDN scripts and the Vite bundle via a single HTML block. The `<div id="root">` is in the same block.
 
-Every technical decision came from a real problem. Curiosity first, tool second.
+**Per-user data model** — all workout data lives at `users/{uid}/data/workouts` in Firestore. One document per user.
+
+**Exercise category design rule** — Arms = elbow is the primary joint, arm doing the work. Back = shoulder blade retracting or lats pulling.
 
 ---
 
-## Running Locally
-
-No install required. Open `public/app.jsx` in a browser via Firebase local emulator, or just deploy and iterate — the deploy takes ~15 seconds.
+## Local Development
 
 ```bash
-cd ~/gn30-tracker
-firebase serve --only hosting
+git clone https://github.com/vtexan/getnerdyin30-workout-tracker
+cd getnerdyin30-workout-tracker
+npm install
+npm run dev
 ```
 
-Then open `http://localhost:5000`.
+### Deploy
 
-> **Note:** Firebase Auth requires an authorized domain. `localhost` is pre-authorized in the Firebase Console. If you fork this and use a custom domain, add it under Authentication → Settings → Authorized Domains.
+```bash
+npm run build
+firebase deploy --only hosting
+```
 
----
-
-## Forking / Contributing
-
-This is a personal project built for my own training — but the codebase is public and the architecture is intentionally simple. If you want to fork it and adapt it for your own trainer's programming style, go for it.
-
-The exercise categories, muscle group tags, and form video URLs are all configurable in the `EXERCISES` array at the top of `app.jsx`.
+Local repo path: `~/gn30-tracker`
 
 ---
 
-*Built February – March 2026 · [@vtexan](https://github.com/vtexan)*
+## Open Bugs
+
+| ID | Description |
+|---|---|
+| BUG-005 | Template/plan weight field visibility |
+| BUG-006 | Custom exercise category editing |
+
+---
+
+## Planned Features
+
+- **Coach Mode** — trainer/client relationship, coach dashboard, session notes, workout programming
+- **Demo / Guest Mode** — "Try Demo" button on login, pre-built sample data, no-op persist
+- **Rest timer** — between-set countdown
+- **Tabata timer** — in-workout 20s/10s interval timer
+- **PWA support** — service worker + manifest for install-to-home-screen
+- **Leaderboard** — opt-in shared PR board
+
+---
+
+*Built by Tommy Trogden · [GetNerdyIn30.com](https://getnerdyin30.com)*
