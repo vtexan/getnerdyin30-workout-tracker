@@ -657,7 +657,7 @@ export default function Dashboard({
                         </button>
                       </div>
                       <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => openPlanEditor(plan)} style={{ ...S.btnOutline("#0ea5e9"), flex: 1, padding: "10px 16px", fontSize: 11 }}>
+                        <button onClick={() => { openPlanEditor(plan); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ ...S.btnOutline("#0ea5e9"), flex: 1, padding: "10px 16px", fontSize: 11 }}>
                           <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><EditIcon /> EDIT PLAN</span>
                         </button>
                         <button onClick={() => {
